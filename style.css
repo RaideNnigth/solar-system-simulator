@@ -1,9 +1,111 @@
-body, html {
+body,
+html {
   margin: 0;
   overflow: hidden;
 }
+
+body {
+  margin: 0;
+  font-family: 'Orbitron', sans-serif;
+  background: black;
+  color: #00d8ff;
+}
+
 canvas {
   width: 100vw;
   height: 100vh;
   display: block;
+}
+
+.floating-menu-side {
+  font-family: sans-serif;
+  background: yellowgreen;
+  padding: 5px;
+  width: 130px;
+  z-index: 100;
+  position: fixed;
+  bottom: 50%;
+  right: 0px;
+}
+
+.floating-menu-side a,
+.floating-menu-side h3 {
+  font-size: 0.9em;
+  display: block;
+  margin: 0 0.5em;
+  color: white;
+}
+
+.control-panel {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: rgba(0, 12, 24, 0.6);
+  padding: 10px 20px;
+  border: 2px solid #0ff;
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+}
+
+.time-display {
+  text-align: center;
+  margin-right: 20px;
+}
+
+.time-display .date {
+  font-size: 1.2rem;
+  color: #fff;
+}
+
+.time-display .date span {
+  color: #0ff;
+  margin-left: 5px;
+}
+
+.time-display .clock {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #0ff;
+}
+
+.time-display .clock span {
+  font-size: 1rem;
+  color: #ccc;
+  margin-left: 5px;
+}
+
+button {
+  background: transparent;
+  border: 2px solid #0ff;
+  color: #0ff;
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+button:hover {
+  background: rgba(0, 255, 255, 0.1);
+}
+
+button:active {
+  background: rgba(0, 255, 255, 0.2);
+}
+
+.toggle-pause-btn{
+  font-size: 1.2rem;
+}
+
+.actual-time-btn {
+  font-weight: bold;
+}
+
+.time-speed-controls button,
+.toggle-controls button {
+  font-size: 0.8rem;
 }

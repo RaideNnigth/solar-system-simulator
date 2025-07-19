@@ -9,10 +9,11 @@ export default class Sphere extends Object3D {
         position = [0, 0, 0],
         rotation = [0, 0, 0],
         scale = [1, 1, 1],
-        data
+        data,
+        shader
     ) {
         const { vertexData, uvData, indexData } = Sphere.createSphereData(radius, latitudeBands, longitudeBands);
-        super(name, vertexData, uvData, indexData, position, rotation, scale, data);
+        super(name, vertexData, uvData, indexData, position, rotation, scale, data, shader);
     }
 
     static createSphereData(radius, latitudeBands, longitudeBands) {

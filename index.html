@@ -1,26 +1,45 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Solar System Simulator</title>
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
+  <nav class="floating-menu-side">
+    <h3>Who you wanna follow?</h3>
+    <select name="body" id="body">
+      <option value="None">None</option>
+      <option value="Sun">Sun</option>
+      <option value="Earth">Earth</option>
+      <option value="Mars">Mars</option>
+      <option value="Venus">Venus</option>
+    </select>
+  </nav>
 
-  <input type="range" id="timeScale" min="0" max="50" step="0.1" value="10">
-  <label for="timeScale">Time Scale</label>
-  <label for="body">Select a body to look at:</label>
-  <select name="body" id="body">
-    <option value="None">None</option>
-    <option value="Sun">Sun</option>
-    <option value="Earth">Earth</option>
-    <option value="Mars">Mars</option>
-    <option value="Venus">Venus</option>
-  </select>
+  <div class="control-panel">
+  <div class="time-display" id="timeDisplay">
+    <div class="date"><span id="year">2025</span> <span id="monthDay">19 JUL</span></div>
+    <div class="clock"><span id="hourMinute">11 : 44</span> <span id="ampm">AM</span></div>
+  </div>
 
-  
+    <div class="playback-controls">
+      <button class="toggle-pause-btn" onclick="">⏸</button>
+    </div>
+
+    <div class="time-speed-controls">
+      <button class="backward">◀ TIME BACKWARD</button>
+      <button class="stop">STOP</button>
+      <button class="forward">TIME FORWARD ▶</button>
+    </div>
+  </div>
+
   <canvas id="canvas"></canvas>
   <script type="module" src="main.js"></script>
+
 </body>
+
 </html>

@@ -1,5 +1,6 @@
 import { mat4 } from 'https://cdn.jsdelivr.net/npm/gl-matrix@3.4.3/esm/index.js';
 import Ephemeris from './Ephemeris.js';
+import Shader from './Shader.js';
 
 export default class Object3D {
     constructor(
@@ -10,9 +11,10 @@ export default class Object3D {
         position = [0, 0, 0],
         rotation = [0, 0, 0],
         scale = [1, 1, 1],
-        data
+        data,
+        shader
     ) {
-        this.name = name; 
+        this.name = name;
         this.vertexData = vertexData;
         this.uvData = uvData;
         this.indexData = indexData;
@@ -32,6 +34,11 @@ export default class Object3D {
             this.ephemeris = new Ephemeris(data);
         } else {
             this.ephemeris = null;
+        }
+        if (shader) {
+            this.shader = shader;
+        } else {
+            this.shader = null;
         }
     }
 
@@ -77,6 +84,7 @@ export default class Object3D {
     }
 
     draw(gl, attribLocations, uniformLocations, camera) {
+
         // Update transforms
         this.updateModelMatrix();
 
@@ -107,5 +115,6 @@ export default class Object3D {
         } else {
             gl.drawArrays(gl.TRIANGLES, 0, this.vertexData.length / 3);
         }
+
     }
 }
