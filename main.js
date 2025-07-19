@@ -22,27 +22,51 @@ function loadTextureAsync(gl, url) {
     });
 }
 
-function loadCSVEphemeris(url) {
-    return new Promise((resolve, reject) => {
+function loadTXTEphemeris(url) {
+    return new Promise((resolve, reject) =>{
         fetch(url)
-            .then(response => response.text())
-            .then(text => {
-                const lines = text.split('\n').filter(line => line.trim() !== '');
-                // remove header
-                lines.shift(); // Assuming the first line is a header
-                const startYear = parseInt(lines[0].split(',')[0]) || 2023; // Default to 2023 if not specified
-
-                const data = lines.map(line => {
-                    const [year, day, hour, x, y, z] = line.split(',').map(Number);
-                    const totalHours = (year - startYear) * 8760 + (day - 1) * 24 + hour;
-                    return { time: totalHours, x, y, z };
-                });
-                resolve(data);
-            })
-            .catch(reject);
+        .then(response => response.text())
+        .then(text => {
+            resolve(parseHorizonsData(text));
+        });
     });
 }
 
+function parseHorizonsData(text) {
+  const lines = text.split('\n');
+  const data = [];
+  const KM_TO_AU = 1 / 149597870.7;
+
+  let baseJulian = null;
+
+  for (let i = 0; i < lines.length - 1; i++) {
+    const line = lines[i];
+    const nextLine = lines[i + 1];
+
+    if (!line.includes('=')) continue;
+    if (!nextLine.includes('X =')) continue;
+
+    const julianMatch = line.match(/^(\d+\.\d+)/);
+    const xMatch = nextLine.match(/X\s*=\s*([-\d.E+]+)/);
+    const yMatch = nextLine.match(/Y\s*=\s*([-\d.E+]+)/);
+    const zMatch = nextLine.match(/Z\s*=\s*([-\d.E+]+)/);
+
+    if (!julianMatch || !xMatch || !yMatch || !zMatch) continue;
+
+    const julian = parseFloat(julianMatch[1]);
+    const x = parseFloat(xMatch[1]) * KM_TO_AU;
+    const y = parseFloat(yMatch[1]) * KM_TO_AU;
+    const z = parseFloat(zMatch[1]) * KM_TO_AU;
+
+    if (baseJulian === null) baseJulian = julian;
+
+    const timeInHours = (julian - baseJulian) * 24;
+
+    data.push({ time: timeInHours, x, y, z });
+  }
+
+  return data;
+}
 
 // 1. Create engine
 const canvas = document.getElementById('canvas');
@@ -92,65 +116,172 @@ engine.getUniformLocation("u_textureId");
 const camera = new Camera(
     canvas.width,
     canvas.height,
-    [0, 50, 0],       // 50 units above, Y-axis
-    [0, 0, 0],        // Looking at the Sun
-    [0, 0, -1]        // "Up" is the -Z axis (to avoid gimbal lock)
+    [0, 50, 0],        // 50 units above, Y-axis
+    [0, 0, 0],         // Looking at the Sun
+    [0, 0, -1],        // "Up" is the -Z axis (to avoid gimbal lock)
+    0.1,               // Near plane
+    1000                // Far plane
 );
 engine.setCamera(camera);
 
-// 5. Load textures
+// 5. Load textures resource and ephemeris data
 Promise.all([
     loadTextureAsync(engine.gl, 'assets/2k_earth_daymap.jpg'),
     loadTextureAsync(engine.gl, 'assets/8k_mars.jpg'),
     loadTextureAsync(engine.gl, 'assets/8k_sun.jpg'),
-    loadCSVEphemeris('assets/data/earth_ephemeris.csv'),
-    loadCSVEphemeris('assets/data/venus_ephemeris.csv'),
-]).then(([earthTexture, marsTexture, sunTexture, earthEphemerisData, venusEphemerisData]) => {
+    loadTextureAsync(engine.gl, 'assets/4k_venus_atmosphere.jpg'),
+    loadTextureAsync(engine.gl, 'assets/2k_neptune.jpg'),
+    loadTextureAsync(engine.gl, 'assets/2k_uranus.jpg'),
+    loadTextureAsync(engine.gl, 'assets/8k_saturn.jpg'),
+    loadTextureAsync(engine.gl, 'assets/8k_jupiter.jpg'),
+    loadTextureAsync(engine.gl, 'assets/8k_mercury.jpg'),
+    loadTXTEphemeris('assets/data/earth-1800-2030.txt'),
+    loadTXTEphemeris('assets/data/venus-1800-2030.txt'),
+    loadTXTEphemeris('assets/data/mars-1800-2030.txt'),
+    loadTXTEphemeris('assets/data/neptune-1800-2030.txt'),
+    loadTXTEphemeris('assets/data/uranus-1800-2030.txt'),
+    loadTXTEphemeris('assets/data/saturn-1800-2030.txt'),
+    loadTXTEphemeris('assets/data/jupiter-1800-2030.txt'),
+    loadTXTEphemeris('assets/data/mercury-1800-2030.txt')
+]).then(
+    (
+        [   
+            earthTexture, 
+            marsTexture, 
+            sunTexture,
+            venusTexture,
+            neptuneTexture,
+            uranusTexture,
+            saturnTexture,
+            jupiterTexture,
+            mercuryTexture,
+            earthEphemerisData,
+            venusEphemerisData,
+            marsEphemerisData,
+            neptuneEphemerisData,
+            uranusEphemerisData,
+            saturnEphemerisData,
+            jupiterEphemerisData,
+            mercuryEphemerisData
+        ]
+    ) => {
 
     // -1.0.0 Convert planet sizes from km to AU
-    const scaleFactor = 1; // Arbitrary scale factor for visualization
+    const scaleFactor = 1000; // Arbitrary scale factor for visualization
     const AU = 149597870.7;
     const sunRadiusKm = 696350;
     const earthRadiusKm = 6378;
     const sunRadiusAU = (sunRadiusKm / AU) * 10;
-    const earthRadiusAU = (earthRadiusKm / AU) * 1000;
+    const earthRadiusAU = (earthRadiusKm / AU) * scaleFactor;
+    const venusRadiusKm = 6051.8;
+    const venusRadiusAU = (venusRadiusKm / AU) * scaleFactor;
+    const marsRadiusKm = 3389.5;
+    const marsRadiusAU = (marsRadiusKm / AU) * scaleFactor;
+    const neptuneRadiusKm = 24622;
+    const neptuneRadiusAU = (neptuneRadiusKm / AU) * scaleFactor;
+    const uranusRadiusKm = 25362;
+    const uranusRadiusAU = (uranusRadiusKm / AU) * scaleFactor;
+    const saturnRadiusKm = 58232;
+    const saturnRadiusAU = (saturnRadiusKm / AU) * scaleFactor;
+    const jupiterRadiusKm = 69911;
+    const jupiterRadiusAU = (jupiterRadiusKm / AU) * scaleFactor;
+    const mercuryRadiusKm = 2439.7;
+    const mercuryRadiusAU = (mercuryRadiusKm / AU) * scaleFactor;
 
 
-    // 6.0.1 Create a sphere for earth planet
+    // 6.0.1 Create a sphere for earth planet || Create a route line for Earth
     const earth = new Sphere('Earth', 1, 32, 32, [0, 0, 0], [0, 0, 0], [earthRadiusAU, earthRadiusAU, earthRadiusAU], earthEphemerisData);
     earth.setBuffers(engine.gl);
     earth.setTexture(earthTexture);
-
-    // 6.0.2 Create a route line for Earth
-    const earthRoute = new RouteLine('EarthRoute', earthEphemerisData);
+    const earthRoute = new RouteLine('EarthRoute', earthEphemerisData, 1);
     earthRoute.setBuffers(engine.gl);
 
-    // 6.0.3 Create a route line for Venus
-    const venusRoute = new RouteLine('VenusRoute', venusEphemerisData);
+    // 6.0.2 Create a sphere for Venus || Create a route line for Venus
+    const venus = new Sphere('Venus', 1, 32, 32, [0, 0, 0], [0, 0, 0], [venusRadiusAU, venusRadiusAU, venusRadiusAU], venusEphemerisData);
+    venus.setBuffers(engine.gl);
+    venus.setTexture(venusTexture);
+    const venusRoute = new RouteLine('VenusRoute', venusEphemerisData, 1);
     venusRoute.setBuffers(engine.gl);
 
-    // 6.0.2 Create a sphere for Sun
+    // 6.0.3 Create a sphere for Mars || Create a route line for Mars
+    const mars = new Sphere('Mars', 1, 32, 32, [0, 0, 0], [0, 0, 0], [marsRadiusAU, marsRadiusAU, marsRadiusAU], marsEphemerisData);
+    mars.setBuffers(engine.gl);
+    mars.setTexture(marsTexture);
+    const marsRoute = new RouteLine('MarsRoute', marsEphemerisData, 1);
+    marsRoute.setBuffers(engine.gl);
+
+    // 6.0.4 Create a sphere for Neptune
+    const neptune = new Sphere('Neptune', 1, 32, 32, [0, 0, 0], [0, 0, 0], [neptuneRadiusAU, neptuneRadiusAU, neptuneRadiusAU], neptuneEphemerisData);
+    neptune.setBuffers(engine.gl);
+    neptune.setTexture(neptuneTexture);
+    const neptuneRoute = new RouteLine('NeptuneRoute', neptuneEphemerisData);
+    neptuneRoute.setBuffers(engine.gl);
+
+    // 6.0.5 Create a sphere for Uranus
+    const uranus = new Sphere('Uranus', 1, 32, 32, [0, 0, 0], [0, 0, 0], [uranusRadiusAU, uranusRadiusAU, uranusRadiusAU], uranusEphemerisData);
+    uranus.setBuffers(engine.gl);
+    uranus.setTexture(uranusTexture);
+    const uranusRoute = new RouteLine('UranusRoute', uranusEphemerisData);
+    uranusRoute.setBuffers(engine.gl);
+    
+    // 6.0.6 Create a sphere for Saturn
+    const saturn = new Sphere('Saturn', 1, 32, 32, [0, 0, 0], [0, 0, 0], [saturnRadiusAU, saturnRadiusAU, saturnRadiusAU], saturnEphemerisData);
+    saturn.setBuffers(engine.gl);
+    saturn.setTexture(saturnTexture);
+    const saturnRoute = new RouteLine('SaturnRoute', saturnEphemerisData);
+    saturnRoute.setBuffers(engine.gl);
+
+    // 6.0.7 Create a sphere for Jupiter
+    const jupiter = new Sphere('Jupiter', 1, 32, 32, [0, 0, 0], [0, 0, 0], [jupiterRadiusAU, jupiterRadiusAU, jupiterRadiusAU], jupiterEphemerisData);
+    jupiter.setBuffers(engine.gl);
+    jupiter.setTexture(jupiterTexture);
+    const jupiterRoute = new RouteLine('JupiterRoute', jupiterEphemerisData);
+    jupiterRoute.setBuffers(engine.gl);
+
+
+    // 6.0.8 Create a sphere for Sun
     const sun = new Sphere('Sun', 1.5, 32, 32, [0, 0, 0], [0, 0, 0], [sunRadiusAU, sunRadiusAU, sunRadiusAU]);
     sun.setBuffers(engine.gl);
     sun.setTexture(sunTexture);
 
+    // 6.0.9 Create a sphere for Mercury
+    const mercury = new Sphere('Mercury', 1, 32, 32, [0, 0, 0], [0, 0, 0], [mercuryRadiusAU, mercuryRadiusAU, mercuryRadiusAU], mercuryEphemerisData);
+    mercury.setBuffers(engine.gl);
+    mercury.setTexture(mercuryTexture);
+    const mercuryRoute = new RouteLine('MercuryRoute', mercuryEphemerisData, 1);
+    mercuryRoute.setBuffers(engine.gl);
+
+    // 6.1 Add objects to the engine
     engine.addObject(earthRoute);
     engine.addObject(venusRoute);
     engine.addObject(earth);
+    engine.addObject(marsRoute);
+    engine.addObject(mars);
+    engine.addObject(venus);
     engine.addObject(sun);
+    engine.addObject(neptuneRoute);
+    engine.addObject(neptune);
+    engine.addObject(uranusRoute);
+    engine.addObject(uranus);
+    engine.addObject(saturnRoute);
+    engine.addObject(saturn);
+    engine.addObject(jupiterRoute);
+    engine.addObject(jupiter);
+    engine.addObject(mercuryRoute);
+    engine.addObject(mercury);
 
     // 7. Start the loop
     engine.start();
 });
 
-// 9. Handle time scale
+// 8. Handle time scale
 const timeScaleSlider = document.getElementById('timeScale');
 timeScaleSlider.addEventListener('input', () => {
     const scale = parseFloat(timeScaleSlider.value);
     engine.setTimeScale(scale);
 });
 
-// 10. Handle body selection
+// 9. Handle body selection
 const bodySelect = document.getElementById('body');
 bodySelect.addEventListener('change', () => {
     const selectedBody = bodySelect.value;
@@ -160,7 +291,7 @@ bodySelect.addEventListener('change', () => {
     );
 });
 
-// 11. Handle camera position, zoom and yaw
+// 10. Handle camera position, zoom and yaw
 let isDragging = false;
 let lastMouseX = 0;
 let lastMouseY = 0;

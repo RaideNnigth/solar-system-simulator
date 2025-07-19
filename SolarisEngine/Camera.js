@@ -6,12 +6,14 @@ export default class Camera {
         height = 1,
         position = [0, 0, 10],
         target = [0, 0, 0],
-        up = [0, 1, 0]
+        up = [0, 1, 0],
+        near = 0.1,
+        far = 100
     ) {
         this.fov = Math.PI / 4;
         this.aspect = width / height;
-        this.near = 0.1;
-        this.far = 100;
+        this.near = near;
+        this.far = far;
         this.projectionMatrix = mat4.create();
         this.viewMatrix = mat4.create();
 

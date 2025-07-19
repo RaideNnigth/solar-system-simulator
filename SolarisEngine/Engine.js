@@ -126,7 +126,7 @@ export default class Engine {
         if (this.cameraTargetObject !== 'None') {
             const obj = this.cameraTargetObject;
             this.camera.lookAt(
-                [obj.position[0], obj.position[1] + 50, obj.position[2]],
+                [obj.position[0], obj.position[1] + 1, obj.position[2]],
                 obj.position,
                 [0, 0, -1]
             );

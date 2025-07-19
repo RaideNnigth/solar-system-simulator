@@ -1,7 +1,7 @@
 import re
 
-input_file = "venus_ephemeris.csv"
-output_file = "venus_ephemeris_clean.csv"
+input_file = "mars_ephemeris.csv"
+output_file = "mars_ephemeris_clean.csv"
 
 # Read all lines
 with open(input_file, "r", encoding="utf-8") as f:
