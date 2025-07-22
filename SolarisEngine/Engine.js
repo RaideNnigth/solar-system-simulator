@@ -1,7 +1,7 @@
 export default class Engine {
     constructor(canvas) {
         this.canvas = canvas;
-        this.gl = canvas.getContext("webgl");
+        this.gl = canvas.getContext("webgl2");
         if (!this.gl) throw new Error("WebGL not supported");
 
         this.objects = [];
@@ -27,6 +27,15 @@ export default class Engine {
         this.cameraTargetObject = 'None';
         this.startDate = new Date(Date.UTC(1800, 0, 1, 0, 0, 0));
         this.endDate = new Date(Date.UTC(2030, 0, 1, 0, 0, 0));
+
+        // Mouse controls
+        this.isDragging = false;
+        this.lastMouseX = 0;
+        this.lastMouseY = 0;
+        this.yaw = 0;
+        this.pitch = 0;
+        this.radius = 50;
+        this.target = [0, 0, 0];
     }
 
     resize() {
@@ -112,7 +121,48 @@ export default class Engine {
         if (i !== -1) this.objects.splice(i, 1);
     }
 
+    updateCameraPosition() {
+        const x = this.radius * Math.cos(this.pitch) * Math.sin(this.yaw);
+        const y = this.radius * Math.sin(this.pitch);
+        const z = this.radius * Math.cos(this.pitch) * Math.cos(this.yaw);
+
+        this.camera.lookAt([x, y, z], this.target, [0, 1, 0]);
+    }
+
     start() {
+        /*
+        * Canvas Mouse controls (Move Around, Zoom In/Out)
+        */
+        const canvas = this.canvas;
+        canvas.addEventListener('mousedown', (e) => {
+            this.isDragging = true;
+            this.lastMouseX = e.clientX;
+            this.lastMouseY = e.clientY;
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            this.isDragging = false;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!this.isDragging) return;
+            const dx = e.clientX - this.lastMouseX;
+            const dy = e.clientY - this.lastMouseY;
+            this.lastMouseX = e.clientX;
+            this.lastMouseY = e.clientY;
+            this.yaw += dx * 0.005;
+            this.pitch += dy * -0.005;
+            this.pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.pitch)); // Limit pitch to avoid gimbal lock
+            this.updateCameraPosition();
+        });
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            this.radius += e.deltaY * 0.05; // Zoom in/out
+            this.radius = Math.max(10, Math.min(200, this.radius)); // Limit zoom range
+            this.updateCameraPosition();
+        });
+
         requestAnimationFrame(this.loop.bind(this));
     }
 

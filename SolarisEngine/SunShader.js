@@ -13,18 +13,18 @@ export default class SunShader extends Shader {
         this.uniformLocations.projection = gl.getUniformLocation(program, 'u_projection');
         this.uniformLocations.time = gl.getUniformLocation(program, 'u_time');
         this.uniformLocations.resolution = gl.getUniformLocation(program, 'u_resolution');
+
     }
 
-    draw(engine, object) {
-        // engine.gl, engine.camera, engine.simulationTime, engine.canvas, etc.
-        // Implementação genérica ou abstracta
-    }
     draw(engine, object) {
         const gl = engine.gl;
         const camera = engine.camera;
         const simulationTime = engine.simulationTime;
         const canvas = engine.canvas;
-        
+
+        const resolutionLocation = gl.getUniformLocation(this.program, "iResolution");
+        const mouseLocation = gl.getUniformLocation(this.program, "iMouse");
+        const timeLocation = gl.getUniformLocation(this.program, "iTime");
 
         object.updateModelMatrix();
 
@@ -44,6 +44,18 @@ export default class SunShader extends Shader {
         gl.uniformMatrix4fv(this.uniformLocations.projection, false, camera.projectionMatrix);
         gl.uniform1f(this.uniformLocations.time, simulationTime);
         gl.uniform2f(this.uniformLocations.resolution, canvas.width, canvas.height);
+
+        // Set additional uniforms
+        gl.uniform3f(resolutionLocation, canvas.width, canvas.height, 1.0);
+        gl.uniform3f(mouseLocation, engine.lastMouseX, engine.lastMouseY, 0.0);
+        gl.uniform1f(timeLocation, simulationTime);
+
+        // Bind texture if available
+        if (object.texture) {
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, object.texture);
+            gl.uniform1i(gl.getUniformLocation(this.program, 'iChannel0'), 0);
+        }
 
         // Draw
         if (object.indexBuffer) {

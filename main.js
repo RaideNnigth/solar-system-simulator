@@ -124,6 +124,7 @@ Promise.all([
     loadTextureAsync(engine.gl, 'assets/8k_saturn.jpg'),
     loadTextureAsync(engine.gl, 'assets/8k_jupiter.jpg'),
     loadTextureAsync(engine.gl, 'assets/8k_mercury.jpg'),
+    loadTextureAsync(engine.gl, 'assets/iChannel0.png'),
     loadTXTEphemeris('assets/data/earth-1800-2030.txt'),
     loadTXTEphemeris('assets/data/venus-1800-2030.txt'),
     loadTXTEphemeris('assets/data/mars-1800-2030.txt'),
@@ -143,6 +144,7 @@ Promise.all([
             saturnTexture,
             jupiterTexture,
             mercuryTexture,
+            iChannel0Texture,
             earthEphemerisData,
             venusEphemerisData,
             marsEphemerisData,
@@ -156,10 +158,11 @@ Promise.all([
 
         // -1.0.0 Convert planet sizes from km to AU
         const scaleFactor = 1000; // Arbitrary scale factor for visualization
+        const sunScaleFactor = 100; // Scale factor for the Sun
         const AU = 149597870.7;
         const sunRadiusKm = 696350;
         const earthRadiusKm = 6378;
-        const sunRadiusAU = (sunRadiusKm / AU) * 100;
+        const sunRadiusAU = (sunRadiusKm / AU) * sunScaleFactor;
         const earthRadiusAU = (earthRadiusKm / AU) * scaleFactor;
         const venusRadiusKm = 6051.8;
         const venusRadiusAU = (venusRadiusKm / AU) * scaleFactor;
@@ -230,6 +233,7 @@ Promise.all([
         // 6.0.8 Create a sphere for Sun
         const sun = new Sphere('Sun', 1.5, 32, 32, [0, 0, 0], [0, 0, 0], [sunRadiusAU, sunRadiusAU, sunRadiusAU], null, sunShader);
         sun.setBuffers(engine.gl);
+        sun.setTexture(iChannel0Texture);
 
         // 6.0.9 Create a sphere for Mercury
         const mercury = new Sphere('Mercury', 1, 32, 32, [0, 0, 0], [0, 0, 0], [mercuryRadiusAU, mercuryRadiusAU, mercuryRadiusAU], mercuryEphemerisData);
@@ -256,10 +260,10 @@ Promise.all([
         engine.addObject(jupiter);
         engine.addObject(mercuryRoute);
         engine.addObject(mercury);
-
-        // 7. Start the loop
-        engine.start();
     });
+
+// 7. Start the loop
+engine.start();
 
 // 9. Handle body selection
 const bodySelect = document.getElementById('body');
@@ -269,55 +273,6 @@ bodySelect.addEventListener('change', () => {
     engine.fixCameraOnObject(
         selectedBody
     );
-});
-
-// 10. Handle camera position, zoom and yaw
-let isDragging = false;
-let lastMouseX = 0;
-let lastMouseY = 0;
-let yaw = 0;
-let pitch = 0;
-let radius = 50;
-let target = [0, 0, 0];
-
-function updateCameraPosition() {
-    const x = radius * Math.cos(pitch) * Math.sin(yaw);
-    const y = radius * Math.sin(pitch);
-    const z = radius * Math.cos(pitch) * Math.cos(yaw);
-
-    camera.lookAt([x, y, z], target, [0, 1, 0]);
-}
-
-/*
-* Canvas Mouse controls (Move Around, Zoom In/Out)
-*/
-canvas.addEventListener('mousedown', (e) => {
-    isDragging = true;
-    lastMouseX = e.clientX;
-    lastMouseY = e.clientY;
-});
-
-canvas.addEventListener('mouseup', () => {
-    isDragging = false;
-});
-
-canvas.addEventListener('mousemove', (e) => {
-    if (!isDragging) return;
-    const dx = e.clientX - lastMouseX;
-    const dy = e.clientY - lastMouseY;
-    lastMouseX = e.clientX;
-    lastMouseY = e.clientY;
-    yaw += dx * 0.005;
-    pitch += dy * -0.005;
-    pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch)); // Limit pitch to avoid gimbal lock
-    updateCameraPosition();
-});
-
-canvas.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    radius += e.deltaY * 0.05; // Zoom in/out
-    radius = Math.max(10, Math.min(200, radius)); // Limit zoom range
-    updateCameraPosition();
 });
 
 // 11. Menu handling
