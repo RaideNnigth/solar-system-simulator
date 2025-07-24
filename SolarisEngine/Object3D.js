@@ -1,4 +1,4 @@
-import { mat4 } from 'https://cdn.jsdelivr.net/npm/gl-matrix@3.4.3/esm/index.js';
+import { mat4, vec3 } from 'https://cdn.jsdelivr.net/npm/gl-matrix@3.4.3/esm/index.js';
 import Ephemeris from './Ephemeris.js';
 import Shader from './Shader.js';
 
@@ -61,6 +61,40 @@ export default class Object3D {
         }
     }
 
+    faceCamera(camera) {
+        const m = this.modelMatrix;
+        mat4.identity(m);
+
+        // Translada para a posição atual
+        mat4.translate(m, m, this.position);
+
+        // Direção da câmera até o objeto
+        const toCamera = vec3.create();
+        vec3.subtract(toCamera, camera.position, this.position);
+        vec3.normalize(toCamera, toCamera);
+
+        // Eixo 'right' = cross(up, toCamera)
+        const up = [0, 1, 0];
+        const right = vec3.create();
+        vec3.cross(right, up, toCamera);
+        vec3.normalize(right, right);
+
+        // Novo 'up' = cross(toCamera, right)
+        const newUp = vec3.create();
+        vec3.cross(newUp, toCamera, right);
+
+        // Monta a matriz de rotação "manual"
+        const rotMatrix = mat4.fromValues(
+            right[0], right[1], right[2], 0,
+            newUp[0], newUp[1], newUp[2], 0,
+            toCamera[0], toCamera[1], toCamera[2], 0,
+            0, 0, 0, 1
+        );
+
+        // Aplica rotação e escala
+        mat4.multiply(m, m, rotMatrix);
+        mat4.scale(m, m, this.scale);
+    }
     updateModelMatrix() {
         const t = this.position;
         const r = this.rotation;

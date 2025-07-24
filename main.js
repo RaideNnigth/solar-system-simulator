@@ -3,6 +3,7 @@ import Camera from './SolarisEngine/Camera.js';
 import Sphere from './SolarisEngine/Sphere.js';
 import RouteLine from './SolarisEngine/RouteLine.js';
 import SunShader from './SolarisEngine/SunShader.js';
+import BillBoard from './SolarisEngine/BillBoard.js';
 
 function loadTextureAsync(gl, url) {
     return new Promise((resolve, reject) => {
@@ -80,15 +81,23 @@ const fragmentShaderSource = await fetch('SolarisEngine/shaderFiles/default.frag
 const defaultProgram = engine.createProgram(vertexShaderSource, fragmentShaderSource);
 
 // 2.1 Create Sun shader
-const sunVertexShaderSource = await fetch('SolarisEngine/shaderFiles/sun.vert.glsl').then(r => r.text());
-const sunFragmentShaderSource = await fetch('SolarisEngine/shaderFiles/sun.frag.glsl').then(r => r.text());
+//const sunVertexShaderSource = await fetch('SolarisEngine/shaderFiles/sun.vert.glsl').then(r => r.text());
+//const sunFragmentShaderSource = await fetch('SolarisEngine/shaderFiles/sun.frag.glsl').then(r => r.text());
 
-const sunProgram = engine.createProgram(sunVertexShaderSource, sunFragmentShaderSource);
-const sunShader = new SunShader(engine.gl, sunProgram);
+//const sunProgram = engine.createProgram(sunVertexShaderSource, sunFragmentShaderSource);
+//const sunShader = new SunShader(engine.gl, sunProgram);
+
+// 2.1.2 Corona Sun Shader
+const sunCoronaVertexShaderSource = await fetch('SolarisEngine/shaderFiles/sun.vert.glsl').then(r => r.text());
+const sunCoronaFragmentShaderSource = await fetch('SolarisEngine/shaderFiles/sun.frag.glsl').then(r => r.text());
+
+const sunCoronaProgram = engine.createProgram(sunCoronaVertexShaderSource, sunCoronaFragmentShaderSource);
+const sunCoronaShader = new SunShader(engine.gl, sunCoronaProgram);
+
 
 // 2.2 attach shaders to programlist
 engine.setPrograms(
-    {'Sun': sunProgram,
+    {'Sun': sunCoronaProgram,
      'default': defaultProgram,
     }
 );
@@ -109,7 +118,7 @@ const camera = new Camera(
     [0, 50, 0],        // 50 units above, Y-axis
     [0, 0, 0],         // Looking at the Sun
     [0, 0, -1],        // "Up" is the -Z axis (to avoid gimbal lock)
-    0.1,               // Near plane
+    0.01,               // Near plane
     1000                // Far plane
 );
 engine.setCamera(camera);
@@ -229,18 +238,26 @@ Promise.all([
         const jupiterRoute = new RouteLine('JupiterRoute', jupiterEphemerisData);
         jupiterRoute.setBuffers(engine.gl);
 
-
-        // 6.0.8 Create a sphere for Sun
-        const sun = new Sphere('Sun', 1.5, 32, 32, [0, 0, 0], [0, 0, 0], [sunRadiusAU, sunRadiusAU, sunRadiusAU], null, sunShader);
-        sun.setBuffers(engine.gl);
-        sun.setTexture(iChannel0Texture);
-
-        // 6.0.9 Create a sphere for Mercury
+        // 6.0.8 Create a sphere for Mercury
         const mercury = new Sphere('Mercury', 1, 32, 32, [0, 0, 0], [0, 0, 0], [mercuryRadiusAU, mercuryRadiusAU, mercuryRadiusAU], mercuryEphemerisData);
         mercury.setBuffers(engine.gl);
         mercury.setTexture(mercuryTexture);
         const mercuryRoute = new RouteLine('MercuryRoute', mercuryEphemerisData, 1);
         mercuryRoute.setBuffers(engine.gl);
+
+        // 6.0.9 Create a sphere for Sun
+        //const sun = new Sphere('Sun', 1.5, 32, 32, [0, 0, 0], [0, 0, 0], [sunRadiusAU, sunRadiusAU, sunRadiusAU], null);
+        //sun.setBuffers(engine.gl);
+        //sun.setTexture(iChannel0Texture);
+
+        
+        // 6.0.99 Create a Corona effect that always follows camera
+        const sun = new BillBoard('Sun', sunCoronaShader);
+        sun.setBuffers(engine.gl);
+        sun.setTexture(iChannel0Texture)
+        sun.scale = [sunRadiusAU, sunRadiusAU, 1]; // Bigger than Sun sphere
+        sun.position = [0, 0, 0];
+
 
         // 6.1 Add objects to the engine
         engine.addObject(earthRoute);
@@ -249,7 +266,6 @@ Promise.all([
         engine.addObject(marsRoute);
         engine.addObject(mars);
         engine.addObject(venus);
-        engine.addObject(sun);
         engine.addObject(neptuneRoute);
         engine.addObject(neptune);
         engine.addObject(uranusRoute);
@@ -260,6 +276,8 @@ Promise.all([
         engine.addObject(jupiter);
         engine.addObject(mercuryRoute);
         engine.addObject(mercury);
+        //engine.addObject(sun);
+        engine.addObject(sun);
     });
 
 // 7. Start the loop

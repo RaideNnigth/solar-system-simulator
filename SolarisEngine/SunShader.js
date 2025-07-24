@@ -26,7 +26,7 @@ export default class SunShader extends Shader {
         const mouseLocation = gl.getUniformLocation(this.program, "iMouse");
         const timeLocation = gl.getUniformLocation(this.program, "iTime");
 
-        object.updateModelMatrix();
+        object.faceCamera(camera);
 
         // Vertex positions
         gl.bindBuffer(gl.ARRAY_BUFFER, object.vertexBuffer);

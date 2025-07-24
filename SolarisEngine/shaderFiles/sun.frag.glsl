@@ -41,6 +41,9 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec2 p = -0.5 + uv;
     p.x *= aspect;
 
+    //vec2 p = (v_uv - 0.5) * vec2(iResolution.x / iResolution.y, 1.0) * 2.0;
+    //float dist = length(p);
+
     float fade = pow(length(2.0 * p), 0.5);
     float fVal1 = 1.0 - fade;
     float fVal2 = 1.0 - fade;
@@ -62,7 +65,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     corona *= 1.2 - newTime1;
     vec3 starSphere = vec3(0.0);
 
-    vec2 sp = -1.0 + 2.0 * uv;
+    vec2 sp = -1.0 + 2.0 * v_uv;
     sp.x *= aspect;
     sp *= (2.0 - brightness);
     float r = dot(sp, sp);
@@ -78,7 +81,9 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
 
     float starGlow = min(max(1.0 - dist * (1.0 - brightness), 0.0), 1.0);
     fragColor.rgb = vec3(f * (0.75 + brightness * 0.3) * orange) + starSphere + corona * orange + starGlow * orangeRed;
-    fragColor.a = 1.0;
+    float alpha = smoothstep(0.5, 0.4, dist);  // Tentativa de boarda circular, espero q n vejam
+    if (alpha < 0.01) discard;
+    fragColor.a = alpha;
 }
 
 void main() {

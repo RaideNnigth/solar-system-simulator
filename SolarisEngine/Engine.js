@@ -19,6 +19,10 @@ export default class Engine {
         this.gl.clearColor(0, 0, 0, 1);
         this.gl.enable(this.gl.DEPTH_TEST);
 
+        // Enable blend
+        this.gl.enable(this.gl.BLEND);
+        this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+
         this.program = {};
         this.attribLocations = {};
         this.uniformLocations = {};
