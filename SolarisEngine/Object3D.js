@@ -95,6 +95,7 @@ export default class Object3D {
         mat4.multiply(m, m, rotMatrix);
         mat4.scale(m, m, this.scale);
     }
+    
     updateModelMatrix() {
         const t = this.position;
         const r = this.rotation;
@@ -117,7 +118,7 @@ export default class Object3D {
         this.ephemeris = new Ephemeris(data);
     }
 
-    draw(gl, attribLocations, uniformLocations, camera) {
+    draw(gl, attribLocations, uniformLocations, camera, currentTime) {
 
         // Update transforms
         this.updateModelMatrix();

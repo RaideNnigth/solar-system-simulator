@@ -1,9 +1,7 @@
 export default class Ephemeris {
     constructor(data) {
         this.data = data;
-        this.startYear = data[0].year || 2023;
-        this.startDay = data[0].day || 1;
-        this.startHour = data[0].hour || 0;
+        this.startTime = data[0].time;
     }
 
     /**
@@ -13,7 +11,7 @@ export default class Ephemeris {
      */
     getPositionForTime(t) {
         if (this.data.length === 0) return [0, 0, 0];
-        if (t <= this.data[0].time) return [this.data[0].x, this.data[0].y, this.data[0].z];
+        if (t <= this.startTime) return null;
         if (t >= this.data[this.data.length - 1].time) {
             const last = this.data[this.data.length - 1];
             return [last.x, last.y, last.z];

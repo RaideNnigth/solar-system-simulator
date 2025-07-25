@@ -21,11 +21,33 @@
   </nav>
 
   <div class="control-panel">
-  <div class="time-display" id="timeDisplay">
-    <div class="date"><span id="year">2025</span> <span id="monthDay">19 JUL</span></div>
-    <div class="clock"><span id="hourMinute">11 : 44</span> <span id="ampm">AM</span></div>
-  </div>
+    <div class="time-display" id="timeDisplay">
+      <div class="date"><span id="year">1800</span> <span id="monthDay">01 JAN</span></div>
+      <div class="clock"><span id="hourMinute">00 : 00</span> <span id="ampm">AM</span></div>
+    </div>
 
+    <div class="set-time-controls">
+      <h4>Set Date and Time</h4>
+      <input type="number" id="setYear" placeholder="Year" value="2000" />
+      <select id="setMonth">
+        <option value="1">JAN</option>
+        <option value="2">FEB</option>
+        <option value="3">MAR</option>
+        <option value="4">APR</option>
+        <option value="5">MAY</option>
+        <option value="6">JUN</option>
+        <option value="7">JUL</option>
+        <option value="8">AUG</option>
+        <option value="9">SEP</option>
+        <option value="10">OCT</option>
+        <option value="11">NOV</option>
+        <option value="12">DEC</option>
+      </select>
+      <input type="number" id="setDay" placeholder="Day" value="1" min="1" max="31" />
+      <input type="number" id="setHour" placeholder="Hour (UTC)" value="0" min="0" max="23" />
+      <input type="number" id="setMinute" placeholder="Minute" value="0" min="0" max="59" />
+      <button id="applyTimeBtn">Set Time</button>
+    </div>
     <div class="playback-controls">
       <button class="toggle-pause-btn" onclick="">⏸</button>
     </div>

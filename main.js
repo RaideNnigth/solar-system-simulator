@@ -39,7 +39,8 @@ function parseHorizonsData(text) {
     const data = [];
     const KM_TO_AU = 1 / 149597870.7;
 
-    let baseJulian = null;
+    // Julian Date for 1800-01-01 00:00 UT
+    const baseJulian = 2378497;
 
     for (let i = 0; i < lines.length - 1; i++) {
         const line = lines[i];
@@ -80,13 +81,6 @@ const fragmentShaderSource = await fetch('SolarisEngine/shaderFiles/default.frag
 
 const defaultProgram = engine.createProgram(vertexShaderSource, fragmentShaderSource);
 
-// 2.1 Create Sun shader
-//const sunVertexShaderSource = await fetch('SolarisEngine/shaderFiles/sun.vert.glsl').then(r => r.text());
-//const sunFragmentShaderSource = await fetch('SolarisEngine/shaderFiles/sun.frag.glsl').then(r => r.text());
-
-//const sunProgram = engine.createProgram(sunVertexShaderSource, sunFragmentShaderSource);
-//const sunShader = new SunShader(engine.gl, sunProgram);
-
 // 2.1.2 Corona Sun Shader
 const sunCoronaVertexShaderSource = await fetch('SolarisEngine/shaderFiles/sun.vert.glsl').then(r => r.text());
 const sunCoronaFragmentShaderSource = await fetch('SolarisEngine/shaderFiles/sun.frag.glsl').then(r => r.text());
@@ -97,8 +91,9 @@ const sunCoronaShader = new SunShader(engine.gl, sunCoronaProgram);
 
 // 2.2 attach shaders to programlist
 engine.setPrograms(
-    {'Sun': sunCoronaProgram,
-     'default': defaultProgram,
+    {
+        'Sun': sunCoronaProgram,
+        'default': defaultProgram,
     }
 );
 
@@ -108,7 +103,7 @@ engine.getAttribLocation(defaultProgram, "a_uv");
 engine.getUniformLocation(defaultProgram, "u_model");
 engine.getUniformLocation(defaultProgram, "u_view");
 engine.getUniformLocation(defaultProgram, "u_projection");
-engine.getUniformLocation(defaultProgram,"u_textureId");
+engine.getUniformLocation(defaultProgram, "u_textureId");
 
 // 4. Create camera
 
@@ -134,6 +129,7 @@ Promise.all([
     loadTextureAsync(engine.gl, 'assets/8k_jupiter.jpg'),
     loadTextureAsync(engine.gl, 'assets/8k_mercury.jpg'),
     loadTextureAsync(engine.gl, 'assets/iChannel0.png'),
+    loadTextureAsync(engine.gl, 'assets/red.jpg'),
     loadTXTEphemeris('assets/data/earth-1800-2030.txt'),
     loadTXTEphemeris('assets/data/venus-1800-2030.txt'),
     loadTXTEphemeris('assets/data/mars-1800-2030.txt'),
@@ -141,7 +137,10 @@ Promise.all([
     loadTXTEphemeris('assets/data/uranus-1800-2030.txt'),
     loadTXTEphemeris('assets/data/saturn-1800-2030.txt'),
     loadTXTEphemeris('assets/data/jupiter-1800-2030.txt'),
-    loadTXTEphemeris('assets/data/mercury-1800-2030.txt')
+    loadTXTEphemeris('assets/data/mercury-1800-2030.txt'),
+    loadTXTEphemeris('assets/data/voyager-1977-2030.txt'),
+    loadTXTEphemeris('assets/data/voyager2-1977-2030.txt'),
+    loadTXTEphemeris('assets/data/halley-1800-2030.txt')
 ]).then(
     (
         [
@@ -154,6 +153,7 @@ Promise.all([
             jupiterTexture,
             mercuryTexture,
             iChannel0Texture,
+            redTexture,
             earthEphemerisData,
             venusEphemerisData,
             marsEphemerisData,
@@ -161,13 +161,16 @@ Promise.all([
             uranusEphemerisData,
             saturnEphemerisData,
             jupiterEphemerisData,
-            mercuryEphemerisData
+            mercuryEphemerisData,
+            voyagerEphemerisData,
+            voyager2EphemerisData,
+            halleyEphemerisData
         ]
     ) => {
 
         // -1.0.0 Convert planet sizes from km to AU
         const scaleFactor = 1000; // Arbitrary scale factor for visualization
-        const sunScaleFactor = 100; // Scale factor for the Sun
+        const sunScaleFactor = 60; // Scale factor for the Sun
         const AU = 149597870.7;
         const sunRadiusKm = 696350;
         const earthRadiusKm = 6378;
@@ -245,21 +248,31 @@ Promise.all([
         const mercuryRoute = new RouteLine('MercuryRoute', mercuryEphemerisData, 1);
         mercuryRoute.setBuffers(engine.gl);
 
-        // 6.0.9 Create a sphere for Sun
-        //const sun = new Sphere('Sun', 1.5, 32, 32, [0, 0, 0], [0, 0, 0], [sunRadiusAU, sunRadiusAU, sunRadiusAU], null);
-        //sun.setBuffers(engine.gl);
-        //sun.setTexture(iChannel0Texture);
-
-        
         // 6.0.99 Create a Corona effect that always follows camera
-        const sun = new BillBoard('Sun', sunCoronaShader);
+        const sun = new BillBoard('Sun', sunCoronaShader, sunRadiusAU);
         sun.setBuffers(engine.gl);
         sun.setTexture(iChannel0Texture)
-        sun.scale = [sunRadiusAU, sunRadiusAU, 1]; // Bigger than Sun sphere
         sun.position = [0, 0, 0];
 
+        // 6.1.0 Create Voyager 1
+        const voyager1 = new Sphere('Voyager1', 1, 32, 32, [0, 0, 0], [0, 0, 0], [earthRadiusAU, earthRadiusAU, earthRadiusAU], voyagerEphemerisData);
+        voyager1.setBuffers(engine.gl);
+        voyager1.setTexture(redTexture);
 
-        // 6.1 Add objects to the engine
+        // 6.1.2 Create Voyager 1
+        const voyager2 = new Sphere('Voyager2', 1, 32, 32, [0, 0, 0], [0, 0, 0], [earthRadiusAU, earthRadiusAU, earthRadiusAU], voyager2EphemerisData);
+        voyager2.setBuffers(engine.gl);
+        voyager2.setTexture(redTexture);
+
+        // 6.2.0 Create Halley's Comet
+        const halley = new Sphere('Halley', 1, 32, 32, [0, 0, 0], [0, 0, 0], [earthRadiusAU, earthRadiusAU, earthRadiusAU], halleyEphemerisData);
+        halley.setBuffers(engine.gl);
+        halley.setTexture(redTexture);
+        const halleyRoute = new RouteLine('HalleyRoute', halleyEphemerisData, 1);
+        halleyRoute.setBuffers(engine.gl);
+
+        // 7 Add objects to the engine
+        engine.addObject(sun);
         engine.addObject(earthRoute);
         engine.addObject(venusRoute);
         engine.addObject(earth);
@@ -276,8 +289,10 @@ Promise.all([
         engine.addObject(jupiter);
         engine.addObject(mercuryRoute);
         engine.addObject(mercury);
-        //engine.addObject(sun);
-        engine.addObject(sun);
+        engine.addObject(voyager1);
+        engine.addObject(halley);
+        engine.addObject(halleyRoute);
+
     });
 
 // 7. Start the loop
@@ -303,5 +318,20 @@ document.querySelector('.toggle-pause-btn').onclick = () => {
     }
 }
 document.querySelector('.backward').onclick = () => engine.setTimeScale(-500);
-document.querySelector('.forward').onclick = () => engine.setTimeScale(500);
+document.querySelector('.forward').onclick = () => engine.setTimeScale(20000);
 document.querySelector('.stop').onclick = () => engine.setTimeScale(1);
+
+document.getElementById('applyTimeBtn').addEventListener('click', () => {
+    const year = parseInt(document.getElementById('setYear').value);
+    const month = parseInt(document.getElementById('setMonth').value);
+    const day = parseInt(document.getElementById('setDay').value);
+    const hour = parseInt(document.getElementById('setHour').value);
+    const minute = parseInt(document.getElementById('setMinute').value);
+
+    if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hour) || isNaN(minute)) {
+        alert('Please enter a valid date and time.');
+        return;
+    }
+
+    engine.setCurrentTime({ year, month, day, hour, minute });
+});

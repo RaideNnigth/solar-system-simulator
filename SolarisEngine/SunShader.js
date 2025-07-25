@@ -22,6 +22,13 @@ export default class SunShader extends Shader {
         const simulationTime = engine.simulationTime;
         const canvas = engine.canvas;
 
+        // resize for aspect ratio
+        const aspect = canvas.width / canvas.height;
+        const height = object.original_size;
+        const width = aspect * height;
+
+        object.scale = [width,height , 1];
+
         const resolutionLocation = gl.getUniformLocation(this.program, "iResolution");
         const mouseLocation = gl.getUniformLocation(this.program, "iMouse");
         const timeLocation = gl.getUniformLocation(this.program, "iTime");

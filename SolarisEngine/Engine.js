@@ -9,7 +9,7 @@ export default class Engine {
         this.lastTime = 0;
         this.timeScale = 1;      // Time scale for simulation --- Each second in real time corresponds to 1 hour;
         this.simulationTime = 0; // Simulation time in hours from the beggining of the simulation
-        this.paused = false;
+        this.paused = true;
 
         // Resize canvas
         this.resize();
@@ -85,6 +85,22 @@ export default class Engine {
         return program;
     }
 
+    setCurrentTime({ year, month, day, hour = 0, minute = 0 }) {
+        const date = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+        if (date < this.startDate) {
+            this.simulationTime = 0;
+        } else if (date > this.endDate) {
+            const ms = this.endDate.getTime() - this.startDate.getTime();
+            this.simulationTime = ms / (1000 * 3600);
+        } else {
+            const ms = date.getTime() - this.startDate.getTime();
+            this.simulationTime = ms / (1000 * 3600); // Convert milliseconds to hours
+        }
+
+        // Also update the simulation clock display immediately
+        this.updateSimulationClockUI();
+    }
+
 
     getAttribLocation(program, name) {
         const loc = this.gl.getAttribLocation(program, name);
@@ -119,6 +135,8 @@ export default class Engine {
     addObject(obj) {
         this.objects.push(obj);
     }
+
+    addObjects(objs) { }
 
     removeObject(obj) {
         const i = this.objects.indexOf(obj);
@@ -203,7 +221,6 @@ export default class Engine {
             return;
         }
 
-        const dateInUse = new Date(Date.UTC(yearInUse, monthIndexInUse, dayNum));
         const startTime = this.startDate.getTime();
         const endTime = this.endDate.getTime();
         const simTime = simulatedDate.getTime();
@@ -254,6 +271,9 @@ export default class Engine {
         for (const obj of this.objects) {
             if (obj.ephemeris && !this.paused) {
                 const pos = obj.ephemeris.getPositionForTime(this.simulationTime);
+                if (pos == null) {
+                    continue;
+                }
                 obj.position = pos;
             }
 
@@ -277,7 +297,7 @@ export default class Engine {
                     view: this.uniformLocations["u_view"],
                     projection: this.uniformLocations["u_projection"],
                     texture: this.uniformLocations["u_textureId"]
-                }, this.camera, this.simulationTime, this.canvas);
+                }, this.camera, this.simulationTime, this.canvas, this.simulationTime);
             }
         }
         // Next frame
