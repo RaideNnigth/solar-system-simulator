@@ -4,6 +4,7 @@ import Sphere from './SolarisEngine/Sphere.js';
 import RouteLine from './SolarisEngine/RouteLine.js';
 import SunShader from './SolarisEngine/SunShader.js';
 import BillBoard from './SolarisEngine/BillBoard.js';
+import SatelliteRoute from './SolarisEngine/SatelliteRoute.js';
 
 function loadTextureAsync(gl, url) {
     return new Promise((resolve, reject) => {
@@ -258,6 +259,8 @@ Promise.all([
         const voyager1 = new Sphere('Voyager1', 1, 32, 32, [0, 0, 0], [0, 0, 0], [earthRadiusAU, earthRadiusAU, earthRadiusAU], voyagerEphemerisData);
         voyager1.setBuffers(engine.gl);
         voyager1.setTexture(redTexture);
+        //const voyager1Route = new SatelliteRoute('Voyager1Route', voyagerEphemerisData, 1);
+        //voyager1Route.setBuffers(engine.gl);
 
         // 6.1.2 Create Voyager 1
         const voyager2 = new Sphere('Voyager2', 1, 32, 32, [0, 0, 0], [0, 0, 0], [earthRadiusAU, earthRadiusAU, earthRadiusAU], voyager2EphemerisData);
@@ -290,6 +293,8 @@ Promise.all([
         engine.addObject(mercuryRoute);
         engine.addObject(mercury);
         engine.addObject(voyager1);
+        //engine.addObject(voyager1Route);
+        engine.addObject(voyager2);
         engine.addObject(halley);
         engine.addObject(halleyRoute);
 
