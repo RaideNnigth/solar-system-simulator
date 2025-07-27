@@ -4,10 +4,17 @@ export default class Engine {
         this.gl = canvas.getContext("webgl2");
         if (!this.gl) throw new Error("WebGL not supported");
 
-        this.objects = [];
+        // Interstellar objects
+        this.planets = [];
+        this.moons = [];
+        this.sun = null;
 
+        // Orbits Section
+        this.orbits = [];
+
+        // Time Section
         this.lastTime = 0;
-        this.timeScale = 1;      // Time scale for simulation --- Each second in real time corresponds to 1 hour;
+        this.timeScale = 4;      // Time scale for simulation --- Each second in real time corresponds to 1 hour;
         this.simulationTime = 0; // Simulation time in hours from the beggining of the simulation
         this.paused = true;
 
@@ -40,115 +47,11 @@ export default class Engine {
         this.pitch = 0;
         this.radius = 50;
         this.target = [0, 0, 0];
-    }
 
-    resize() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
-        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-        if (this.camera) {
-            this.camera.updateProjection(this.canvas.width, this.canvas.height);
-        }
-    }
+        // Performance house keeping boy
+        this.lastClockUpdate = 0;
 
-    setPrograms(programs) {
-        this.programs = programs;
-    }
-    createProgram(vertexSource, fragmentSource) {
-        const gl = this.gl;
-
-        const vertexShader = gl.createShader(gl.VERTEX_SHADER);
-        gl.shaderSource(vertexShader, vertexSource);
-        gl.compileShader(vertexShader);
-        if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
-            console.error(gl.getShaderInfoLog(vertexShader));
-            throw new Error("Vertex shader compile error");
-        }
-
-        const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-        gl.shaderSource(fragmentShader, fragmentSource);
-        gl.compileShader(fragmentShader);
-        if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
-            console.error(gl.getShaderInfoLog(fragmentShader));
-            throw new Error("Fragment shader compile error");
-        }
-
-        const program = gl.createProgram();
-        gl.attachShader(program, vertexShader);
-        gl.attachShader(program, fragmentShader);
-        gl.linkProgram(program);
-        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-            console.error(gl.getProgramInfoLog(program));
-            throw new Error("Program link error");
-        }
-
-        return program;
-    }
-
-    setCurrentTime({ year, month, day, hour = 0, minute = 0 }) {
-        const date = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
-        if (date < this.startDate) {
-            this.simulationTime = 0;
-        } else if (date > this.endDate) {
-            const ms = this.endDate.getTime() - this.startDate.getTime();
-            this.simulationTime = ms / (1000 * 3600);
-        } else {
-            const ms = date.getTime() - this.startDate.getTime();
-            this.simulationTime = ms / (1000 * 3600); // Convert milliseconds to hours
-        }
-
-        // Also update the simulation clock display immediately
-        this.updateSimulationClockUI();
-    }
-
-
-    getAttribLocation(program, name) {
-        const loc = this.gl.getAttribLocation(program, name);
-        this.attribLocations[name] = loc;
-        return loc;
-    }
-
-    getUniformLocation(program, name) {
-        const loc = this.gl.getUniformLocation(program, name);
-        this.uniformLocations[name] = loc;
-        return loc;
-    }
-
-    setCamera(camera) {
-        this.camera = camera;
-    }
-
-    fixCameraOnObject(objectName) {
-        const object = this.objects.find(obj => obj.name === objectName);
-        if (object) {
-            this.cameraTargetObject = object;
-        } else {
-            console.warn(`Object with name ${objectName} not found.`);
-            this.cameraTargetObject = 'None';
-        }
-    }
-
-    setTimeScale(scale) {
-        this.timeScale = scale;
-    }
-
-    addObject(obj) {
-        this.objects.push(obj);
-    }
-
-    addObjects(objs) { }
-
-    removeObject(obj) {
-        const i = this.objects.indexOf(obj);
-        if (i !== -1) this.objects.splice(i, 1);
-    }
-
-    updateCameraPosition() {
-        const x = this.radius * Math.cos(this.pitch) * Math.sin(this.yaw);
-        const y = this.radius * Math.sin(this.pitch);
-        const z = this.radius * Math.cos(this.pitch) * Math.cos(this.yaw);
-
-        this.camera.lookAt([x, y, z], this.target, [0, 1, 0]);
+        this.backGround = null;
     }
 
     start() {
@@ -180,12 +83,135 @@ export default class Engine {
 
         canvas.addEventListener('wheel', (e) => {
             e.preventDefault();
-            this.radius += e.deltaY * 0.05; // Zoom in/out
-            this.radius = Math.max(10, Math.min(200, this.radius)); // Limit zoom range
+            this.radius += e.deltaY * 0.05;
+            this.radius = Math.max(10, Math.min(200, this.radius));
             this.updateCameraPosition();
-        });
+        }, { passive: false });
 
         requestAnimationFrame(this.loop.bind(this));
+    }
+
+    addMoons(objs) {
+        this.moons.push(...objs);
+    }
+
+    addPlanets(objs) {
+        this.planets.push(...objs);
+    }
+
+    addOrbits(orbs) {
+        this.orbits.push(...orbs);
+    }
+
+    removeObject(obj) {
+        const i = this.planets.indexOf(obj);
+        if (i !== -1) this.planets.splice(i, 1);
+    }
+
+    getAttribLocation(program, name) {
+        const loc = this.gl.getAttribLocation(program, name);
+        this.attribLocations[name] = loc;
+        return loc;
+    }
+
+    getUniformLocation(program, name) {
+        const loc = this.gl.getUniformLocation(program, name);
+        this.uniformLocations[name] = loc;
+        return loc;
+    }
+
+    setPrograms(programs) {
+        this.programs = programs;
+    }
+
+    setBackground(background) {
+        this.backGround = background;
+    }
+
+    setTimeScale(scale) {
+        this.timeScale = scale;
+    }
+
+    setCamera(camera) {
+        this.camera = camera;
+    }
+
+    setCurrentTime({ year, month, day, hour = 0, minute = 0 }) {
+        const date = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+        if (date < this.startDate) {
+            this.simulationTime = 0;
+        } else if (date > this.endDate) {
+            const ms = this.endDate.getTime() - this.startDate.getTime();
+            this.simulationTime = ms / (1000 * 3600);
+        } else {
+            const ms = date.getTime() - this.startDate.getTime();
+            this.simulationTime = ms / (1000 * 3600); // Convert milliseconds to hours
+        }
+
+        // Also update the simulation clock display immediately
+        this.updateSimulationClockUI();
+    }
+
+    setSun(sun) {
+        this.sun = sun;
+    }
+
+    createProgram(vertexSource, fragmentSource) {
+        const gl = this.gl;
+
+        const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+        gl.shaderSource(vertexShader, vertexSource);
+        gl.compileShader(vertexShader);
+        if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+            console.error(gl.getShaderInfoLog(vertexShader));
+            throw new Error("Vertex shader compile error");
+        }
+
+        const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+        gl.shaderSource(fragmentShader, fragmentSource);
+        gl.compileShader(fragmentShader);
+        if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+            console.error(gl.getShaderInfoLog(fragmentShader));
+            throw new Error("Fragment shader compile error");
+        }
+
+        const program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            console.error(gl.getProgramInfoLog(program));
+            throw new Error("Program link error");
+        }
+
+        return program;
+    }
+
+    resize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        if (this.camera) {
+            this.camera.updateProjection(this.canvas.width, this.canvas.height);
+        }
+    }
+
+    fixCameraOnObject(objectName) {
+        const object = this.planets.find(obj => obj.name === objectName);
+        if (object) {
+            this.cameraTargetObject = object;
+        } else {
+            console.warn(`Object with name ${objectName} not found.`);
+            this.cameraTargetObject = 'None';
+        }
+    }
+
+    updateCameraPosition() {
+        const x = this.radius * Math.cos(this.pitch) * Math.sin(this.yaw);
+        const y = this.radius * Math.sin(this.pitch);
+        const z = this.radius * Math.cos(this.pitch) * Math.cos(this.yaw);
+
+        this.camera.lookAt([x, y, z], this.target, [0, 1, 0]);
     }
 
     togglePause() {
@@ -238,12 +264,20 @@ export default class Engine {
         }
     }
 
-
-
     loop(currentTime) {
         // Clear the screen
         const gl = this.gl;
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        // Draw first the background :D Cool stars
+        if (this.backGround) {
+            if (this.backGround.shader?.uniformLocations?.cameraPosition) {
+                const camPos = this.camera.eye;
+                this.gl.useProgram(this.backGround.shader.program);
+                this.gl.uniform3fv(this.backGround.shader.uniformLocations.cameraPosition, new Float32Array(camPos));
+            }
+            this.backGround.draw();
+        }
 
         // Update camera position and orientation to look at the target object
         if (this.cameraTargetObject !== 'None') {
@@ -256,50 +290,76 @@ export default class Engine {
         }
 
         // Calculate delta time and update simulation time if not paused
-        // do it outside of the loop to avoid issues with requestAnimationFrame timing for individual objects
+        // do it outside of the loop to avoid issues with requestAnimationFrame timing for individual planets
         if (!this.paused) {
-            const deltaTime = (currentTime - this.lastTime) / 1000; // seconds
+            const deltaTime = (currentTime - this.lastTime) / 1000;
             let simulationDelta = deltaTime * this.timeScale;
             this.simulationTime += simulationDelta;
-            // Update the simulation clock UI
-            this.updateSimulationClockUI();
+
+            if (currentTime - this.lastClockUpdate > 500) {
+                this.updateSimulationClockUI();
+                this.lastClockUpdate = currentTime;
+            }
         }
         // Store the current time for the next frame (always do it even when paused) to avoid jumping frames
         this.lastTime = currentTime;
 
-        // Update objects' positions based on their ephemeris
-        for (const obj of this.objects) {
-            if (obj.ephemeris && !this.paused) {
-                const pos = obj.ephemeris.getPositionForTime(this.simulationTime);
-                if (pos == null) {
-                    continue;
-                }
-                obj.position = pos;
-            }
-
-            // Custom shader handling
-            let program = this.programs['default'];
-            if (this.programs[obj.name]) {
-                program = this.programs[obj.name];
-            }
+        // Draw the sun before planets and moons
+        if (this.sun) {
+            let program = this.programs['Sun'];
             gl.useProgram(program);
-
-            if (obj.shader !== null) {
-                obj.shader.draw(this, obj);
-            } else {
-                // PLEASE NOTE: The Object3D class should have a method to update its model matrix
-                // Do not/never change this part please, 10000 try
-                obj.draw(gl, {
-                    position: this.attribLocations["a_position"],
-                    uv: this.attribLocations["a_uv"]
-                }, {
-                    model: this.uniformLocations["u_model"],
-                    view: this.uniformLocations["u_view"],
-                    projection: this.uniformLocations["u_projection"],
-                    texture: this.uniformLocations["u_textureId"]
-                }, this.camera, this.simulationTime, this.canvas, this.simulationTime);
-            }
+            this.sun.draw(this, this.sun);
         }
+
+        // Use Default program pro Planets and Moons
+        let program = this.programs['Default'];
+        gl.useProgram(program);
+        // Update planets positions based on their ephemeris
+        for (const planet of this.planets) {
+            if (!this.paused) {
+                const pos = planet.ephemeris.getPositionForTime(this.simulationTime);
+                planet.position = pos;
+                planet.rotation[3] = (planet.rotation[3] || 0) + planet.rotationSpeed;
+            }
+            // PLEASE NOTE: The Object3D class should have a method to update its model matrix
+            // Do not/never change this part please, 10000 try
+            planet.draw(gl, {
+                position: this.attribLocations["a_position"],
+                uv: this.attribLocations["a_uv"]
+            }, {
+                model: this.uniformLocations["u_model"],
+                view: this.uniformLocations["u_view"],
+                projection: this.uniformLocations["u_projection"],
+                texture: this.uniformLocations["u_textureId"]
+            }, this.camera, this.simulationTime, this.canvas);
+        }
+        // Update moons positions based on their ephemeris
+        for (const moon of this.moons) {
+            if (!this.paused) {
+                const pos = moon.ephemeris.getPositionForTime(this.simulationTime);
+                moon.position = pos;
+                moon.rotation[3] = (moon.rotation[3] || 0) + moon.rotationSpeed;
+            }
+            // PLEASE NOTE: The Object3D class should have a method to update its model matrix
+            // Do not/never change this part please, 10000 try
+            moon.draw(gl, {
+                position: this.attribLocations["a_position"],
+                uv: this.attribLocations["a_uv"]
+            }, {
+                model: this.uniformLocations["u_model"],
+                view: this.uniformLocations["u_view"],
+                projection: this.uniformLocations["u_projection"],
+                texture: this.uniformLocations["u_textureId"]
+            }, this.camera, this.simulationTime, this.canvas);
+        }
+
+        // Last but not least draw orbits
+        program = this.programs['Orbit'];
+        gl.useProgram(program);
+        for (const orbit of this.orbits) {
+            orbit.draw(this, orbit);
+        }
+
         // Next frame
         requestAnimationFrame(this.loop.bind(this));
     }

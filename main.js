@@ -1,10 +1,15 @@
 import Engine from './SolarisEngine/Engine.js';
 import Camera from './SolarisEngine/Camera.js';
-import Sphere from './SolarisEngine/Sphere.js';
-import RouteLine from './SolarisEngine/RouteLine.js';
-import SunShader from './SolarisEngine/SunShader.js';
-import BillBoard from './SolarisEngine/BillBoard.js';
-import SatelliteRoute from './SolarisEngine/SatelliteRoute.js';
+import Planet from './SolarisEngine/Planet.js';
+import Moon from './SolarisEngine/Moon.js';
+
+import Orbit from './SolarisEngine/Orbit.js';
+import OrbitShader from './SolarisEngine/OrbitShader.js';
+
+import Sun from './SolarisEngine/Sun.js';
+
+import Background from './SolarisEngine/Background.js';
+import BackgroundShader from './SolarisEngine/BackgroundShader.js';
 
 function loadTextureAsync(gl, url) {
     return new Promise((resolve, reject) => {
@@ -79,22 +84,31 @@ const engine = new Engine(canvas);
 // 2. Load shaders
 const vertexShaderSource = await fetch('SolarisEngine/shaderFiles/default.vert.glsl').then(r => r.text());
 const fragmentShaderSource = await fetch('SolarisEngine/shaderFiles/default.frag.glsl').then(r => r.text());
-
 const defaultProgram = engine.createProgram(vertexShaderSource, fragmentShaderSource);
 
 // 2.1.2 Corona Sun Shader
-const sunCoronaVertexShaderSource = await fetch('SolarisEngine/shaderFiles/sun.vert.glsl').then(r => r.text());
-const sunCoronaFragmentShaderSource = await fetch('SolarisEngine/shaderFiles/sun.frag.glsl').then(r => r.text());
+const sunVertexShaderSource = await fetch('SolarisEngine/shaderFiles/sun.vert.glsl').then(r => r.text());
+const sunFragmentShaderSource = await fetch('SolarisEngine/shaderFiles/sun.frag.glsl').then(r => r.text());
+const sunProgram = engine.createProgram(sunVertexShaderSource, sunFragmentShaderSource);
 
-const sunCoronaProgram = engine.createProgram(sunCoronaVertexShaderSource, sunCoronaFragmentShaderSource);
-const sunCoronaShader = new SunShader(engine.gl, sunCoronaProgram);
+//2.1.3 Create line fader
+const orbitVertex = await fetch('SolarisEngine/shaderFiles/linefader.vert.glsl').then(r => r.text());
+const orbitFragment = await fetch('SolarisEngine/shaderFiles/linefader.frag.glsl').then(r => r.text());
+const orbitProgram = engine.createProgram(orbitVertex, orbitFragment);
 
 
-// 2.2 attach shaders to programlist
+//2.1.4 Create background shader
+const bgVertex = await fetch('SolarisEngine/shaderFiles/background.vert.glsl').then(r => r.text());
+const bgFrag = await fetch('SolarisEngine/shaderFiles/background.frag.glsl').then(r => r.text());
+const bgProgram = engine.createProgram(bgVertex, bgFrag);
+const backgroundShader = new BackgroundShader(engine.gl, bgProgram)
+
+// 2.2 attach shaders to program list
 engine.setPrograms(
     {
-        'Sun': sunCoronaProgram,
-        'default': defaultProgram,
+        'Default': defaultProgram,
+        'Orbit': orbitProgram,
+        'Sun': sunProgram,
     }
 );
 
@@ -131,6 +145,8 @@ Promise.all([
     loadTextureAsync(engine.gl, 'assets/8k_mercury.jpg'),
     loadTextureAsync(engine.gl, 'assets/iChannel0.png'),
     loadTextureAsync(engine.gl, 'assets/red.jpg'),
+    loadTextureAsync(engine.gl, 'assets/background_sky.jpg'),
+    loadTextureAsync(engine.gl, 'assets/2k_moon.jpg'),
     loadTXTEphemeris('assets/data/earth-1800-2030.txt'),
     loadTXTEphemeris('assets/data/venus-1800-2030.txt'),
     loadTXTEphemeris('assets/data/mars-1800-2030.txt'),
@@ -141,7 +157,8 @@ Promise.all([
     loadTXTEphemeris('assets/data/mercury-1800-2030.txt'),
     loadTXTEphemeris('assets/data/voyager-1977-2030.txt'),
     loadTXTEphemeris('assets/data/voyager2-1977-2030.txt'),
-    loadTXTEphemeris('assets/data/halley-1800-2030.txt')
+    loadTXTEphemeris('assets/data/halley-1800-2030.txt'),
+    loadTXTEphemeris('assets/data/moon-1800-2030.txt'),
 ]).then(
     (
         [
@@ -155,6 +172,8 @@ Promise.all([
             mercuryTexture,
             iChannel0Texture,
             redTexture,
+            backGroundTexture,
+            moonTexture,
             earthEphemerisData,
             venusEphemerisData,
             marsEphemerisData,
@@ -165,13 +184,14 @@ Promise.all([
             mercuryEphemerisData,
             voyagerEphemerisData,
             voyager2EphemerisData,
-            halleyEphemerisData
+            halleyEphemerisData,
+            moonEphemerisData
         ]
     ) => {
 
         // -1.0.0 Convert planet sizes from km to AU
         const scaleFactor = 1000; // Arbitrary scale factor for visualization
-        const sunScaleFactor = 60; // Scale factor for the Sun
+        const sunScaleFactor = 20; // Scale factor for the Sun
         const AU = 149597870.7;
         const sunRadiusKm = 696350;
         const earthRadiusKm = 6378;
@@ -192,111 +212,46 @@ Promise.all([
         const mercuryRadiusKm = 2439.7;
         const mercuryRadiusAU = (mercuryRadiusKm / AU) * scaleFactor;
 
+        const moonRadiusKm = 1737.4;
+        const moonRadiusAU = (moonRadiusKm / AU) * scaleFactor * 3;
 
-        // 6.0.1 Create a sphere for earth planet || Create a route line for Earth
-        const earth = new Sphere('Earth', 1, 32, 32, [0, 0, 0], [0, 0, 0], [earthRadiusAU, earthRadiusAU, earthRadiusAU], earthEphemerisData);
-        earth.setBuffers(engine.gl);
-        earth.setTexture(earthTexture);
-        const earthRoute = new RouteLine('EarthRoute', earthEphemerisData, 1);
-        earthRoute.setBuffers(engine.gl);
+        const background = new Background(engine.gl, backgroundShader, backGroundTexture);
+        engine.setBackground(background);
 
-        // 6.0.2 Create a sphere for Venus || Create a route line for Venus
-        const venus = new Sphere('Venus', 1, 32, 32, [0, 0, 0], [0, 0, 0], [venusRadiusAU, venusRadiusAU, venusRadiusAU], venusEphemerisData);
-        venus.setBuffers(engine.gl);
-        venus.setTexture(venusTexture);
-        const venusRoute = new RouteLine('VenusRoute', venusEphemerisData, 1);
-        venusRoute.setBuffers(engine.gl);
+        // 6 Create the Planets, moon and Orbits
+        const earth = new Planet('Earth', [earthRadiusAU, earthRadiusAU, earthRadiusAU], earthEphemerisData, earthTexture, engine.gl, [0, 1, 0], 0.05);
+        const moon = new Moon('Moon', [moonRadiusAU, moonRadiusAU, moonRadiusAU], moonEphemerisData, moonTexture, engine.gl, [0, 0.5, 0], [0, 1, 0], 0.05);
+        const mars = new Planet('Mars', [marsRadiusAU, marsRadiusAU, marsRadiusAU], marsEphemerisData, marsTexture, engine.gl, [0, 1, 0], 0.05);
+        const venus = new Planet('Mars', [venusRadiusAU, venusRadiusAU, venusRadiusAU], venusEphemerisData, venusTexture, engine.gl, [0, 1, 0], 0.05);
+        const mercury = new Planet('Mars', [mercuryRadiusAU, mercuryRadiusAU, mercuryRadiusAU], mercuryEphemerisData, mercuryTexture, engine.gl, [0, 1, 0], 0.05);
+        const neptune = new Planet('Mars', [neptuneRadiusAU, neptuneRadiusAU, neptuneRadiusAU], neptuneEphemerisData, neptuneTexture, engine.gl, [0, 1, 0], 0.05);
+        const uranus = new Planet('Mars', [uranusRadiusAU, uranusRadiusAU, uranusRadiusAU], uranusEphemerisData, uranusTexture, engine.gl, [0, 1, 0], 0.05);
+        const saturn = new Planet('Mars', [saturnRadiusAU, saturnRadiusAU, saturnRadiusAU], saturnEphemerisData, saturnTexture, engine.gl, [0, 1, 0], 0.05);
+        const jupiter = new Planet('Mars', [jupiterRadiusAU, jupiterRadiusAU, jupiterRadiusAU], jupiterEphemerisData, jupiterTexture, engine.gl, [0, 1, 0], 0.05);
 
-        // 6.0.3 Create a sphere for Mars || Create a route line for Mars
-        const mars = new Sphere('Mars', 1, 32, 32, [0, 0, 0], [0, 0, 0], [marsRadiusAU, marsRadiusAU, marsRadiusAU], marsEphemerisData);
-        mars.setBuffers(engine.gl);
-        mars.setTexture(marsTexture);
-        const marsRoute = new RouteLine('MarsRoute', marsEphemerisData, 1);
-        marsRoute.setBuffers(engine.gl);
+        const earthOrbit = new Orbit(engine.gl, orbitProgram, earthEphemerisData, 1, 2, 1);
 
-        // 6.0.4 Create a sphere for Neptune
-        const neptune = new Sphere('Neptune', 1, 32, 32, [0, 0, 0], [0, 0, 0], [neptuneRadiusAU, neptuneRadiusAU, neptuneRadiusAU], neptuneEphemerisData);
-        neptune.setBuffers(engine.gl);
-        neptune.setTexture(neptuneTexture);
-        const neptuneRoute = new RouteLine('NeptuneRoute', neptuneEphemerisData);
-        neptuneRoute.setBuffers(engine.gl);
+        // 7 Add Moons to the engine
+        engine.addMoons([moon]);
 
-        // 6.0.5 Create a sphere for Uranus
-        const uranus = new Sphere('Uranus', 1, 32, 32, [0, 0, 0], [0, 0, 0], [uranusRadiusAU, uranusRadiusAU, uranusRadiusAU], uranusEphemerisData);
-        uranus.setBuffers(engine.gl);
-        uranus.setTexture(uranusTexture);
-        const uranusRoute = new RouteLine('UranusRoute', uranusEphemerisData);
-        uranusRoute.setBuffers(engine.gl);
+        // 8 Add planets to the engine
+        engine.addPlanets(
+            [
+                earth, mars, venus, mercury,
+                neptune, uranus, saturn, jupiter
+            ]
+        );
 
-        // 6.0.6 Create a sphere for Saturn
-        const saturn = new Sphere('Saturn', 1, 32, 32, [0, 0, 0], [0, 0, 0], [saturnRadiusAU, saturnRadiusAU, saturnRadiusAU], saturnEphemerisData);
-        saturn.setBuffers(engine.gl);
-        saturn.setTexture(saturnTexture);
-        const saturnRoute = new RouteLine('SaturnRoute', saturnEphemerisData);
-        saturnRoute.setBuffers(engine.gl);
+        // 9 Create a Corona effect that always follows camera
+        const sun = new Sun(engine.gl, sunProgram, iChannel0Texture, sunRadiusAU)
+        engine.setSun(sun);
 
-        // 6.0.7 Create a sphere for Jupiter
-        const jupiter = new Sphere('Jupiter', 1, 32, 32, [0, 0, 0], [0, 0, 0], [jupiterRadiusAU, jupiterRadiusAU, jupiterRadiusAU], jupiterEphemerisData);
-        jupiter.setBuffers(engine.gl);
-        jupiter.setTexture(jupiterTexture);
-        const jupiterRoute = new RouteLine('JupiterRoute', jupiterEphemerisData);
-        jupiterRoute.setBuffers(engine.gl);
-
-        // 6.0.8 Create a sphere for Mercury
-        const mercury = new Sphere('Mercury', 1, 32, 32, [0, 0, 0], [0, 0, 0], [mercuryRadiusAU, mercuryRadiusAU, mercuryRadiusAU], mercuryEphemerisData);
-        mercury.setBuffers(engine.gl);
-        mercury.setTexture(mercuryTexture);
-        const mercuryRoute = new RouteLine('MercuryRoute', mercuryEphemerisData, 1);
-        mercuryRoute.setBuffers(engine.gl);
-
-        // 6.0.99 Create a Corona effect that always follows camera
-        const sun = new BillBoard('Sun', sunCoronaShader, sunRadiusAU);
-        sun.setBuffers(engine.gl);
-        sun.setTexture(iChannel0Texture)
-        sun.position = [0, 0, 0];
-
-        // 6.1.0 Create Voyager 1
-        const voyager1 = new Sphere('Voyager1', 1, 32, 32, [0, 0, 0], [0, 0, 0], [earthRadiusAU, earthRadiusAU, earthRadiusAU], voyagerEphemerisData);
-        voyager1.setBuffers(engine.gl);
-        voyager1.setTexture(redTexture);
-        //const voyager1Route = new SatelliteRoute('Voyager1Route', voyagerEphemerisData, 1);
-        //voyager1Route.setBuffers(engine.gl);
-
-        // 6.1.2 Create Voyager 1
-        const voyager2 = new Sphere('Voyager2', 1, 32, 32, [0, 0, 0], [0, 0, 0], [earthRadiusAU, earthRadiusAU, earthRadiusAU], voyager2EphemerisData);
-        voyager2.setBuffers(engine.gl);
-        voyager2.setTexture(redTexture);
-
-        // 6.2.0 Create Halley's Comet
-        const halley = new Sphere('Halley', 1, 32, 32, [0, 0, 0], [0, 0, 0], [earthRadiusAU, earthRadiusAU, earthRadiusAU], halleyEphemerisData);
-        halley.setBuffers(engine.gl);
-        halley.setTexture(redTexture);
-        const halleyRoute = new RouteLine('HalleyRoute', halleyEphemerisData, 1);
-        halleyRoute.setBuffers(engine.gl);
-
-        // 7 Add objects to the engine
-        engine.addObject(sun);
-        engine.addObject(earthRoute);
-        engine.addObject(venusRoute);
-        engine.addObject(earth);
-        engine.addObject(marsRoute);
-        engine.addObject(mars);
-        engine.addObject(venus);
-        engine.addObject(neptuneRoute);
-        engine.addObject(neptune);
-        engine.addObject(uranusRoute);
-        engine.addObject(uranus);
-        engine.addObject(saturnRoute);
-        engine.addObject(saturn);
-        engine.addObject(jupiterRoute);
-        engine.addObject(jupiter);
-        engine.addObject(mercuryRoute);
-        engine.addObject(mercury);
-        engine.addObject(voyager1);
-        //engine.addObject(voyager1Route);
-        engine.addObject(voyager2);
-        engine.addObject(halley);
-        engine.addObject(halleyRoute);
+        // 10 Add Orbits
+        engine.addOrbits(
+            [
+                earthOrbit,
+            ]
+        );
 
     });
 

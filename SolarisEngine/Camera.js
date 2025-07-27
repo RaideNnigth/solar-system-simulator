@@ -20,6 +20,7 @@ export default class Camera {
         this.position = position;
         this.target = target;
         this.up = up;
+        this.eye = position;
 
         this.updateProjectionMatrix();
         this.updateCameraMatrix();
@@ -55,9 +56,11 @@ export default class Camera {
     }
 
     lookAt(position, target, up = this.up) {
+        
         this.position = position;
         this.target = target;
         this.up = up;
+        this.eye = position;
         this.updateCameraMatrix();
     }
 
