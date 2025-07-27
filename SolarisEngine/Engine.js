@@ -148,6 +148,13 @@ export default class Engine {
             this.simulationTime = ms / (1000 * 3600); // Convert milliseconds to hours
         }
 
+        // reset orbits soo we dont have any spikes
+        if (this.orbits) {
+            for (let orbit of this.orbits) {
+                orbit.resetPoints();
+            }
+        }
+
         // Also update the simulation clock display immediately
         this.updateSimulationClockUI();
     }
@@ -270,11 +277,13 @@ export default class Engine {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         // Draw first the background :D Cool stars
+        let program = this.programs['BackGround'];
+        this.gl.useProgram(program);
         if (this.backGround) {
-            if (this.backGround.shader?.uniformLocations?.cameraPosition) {
+            if (this.backGround.uniformLocations?.cameraPosition) {
                 const camPos = this.camera.eye;
-                this.gl.useProgram(this.backGround.shader.program);
-                this.gl.uniform3fv(this.backGround.shader.uniformLocations.cameraPosition, new Float32Array(camPos));
+                this.gl.useProgram(program);
+                this.gl.uniform3fv(this.backGround.uniformLocations.cameraPosition, new Float32Array(camPos));
             }
             this.backGround.draw();
         }
@@ -292,11 +301,15 @@ export default class Engine {
         // Calculate delta time and update simulation time if not paused
         // do it outside of the loop to avoid issues with requestAnimationFrame timing for individual planets
         if (!this.paused) {
-            const deltaTime = (currentTime - this.lastTime) / 1000;
+            let deltaTime = (currentTime - this.lastTime) / 1000;
+
+            // Cap the delta to 0.1s (~10 FPS)
+            deltaTime = Math.min(deltaTime, 0.1);
+
             let simulationDelta = deltaTime * this.timeScale;
             this.simulationTime += simulationDelta;
 
-            if (currentTime - this.lastClockUpdate > 500) {
+            if (currentTime - this.lastClockUpdate > 50) {
                 this.updateSimulationClockUI();
                 this.lastClockUpdate = currentTime;
             }
@@ -312,14 +325,23 @@ export default class Engine {
         }
 
         // Use Default program pro Planets and Moons
-        let program = this.programs['Default'];
+        program = this.programs['Default'];
         gl.useProgram(program);
         // Update planets positions based on their ephemeris
         for (const planet of this.planets) {
+            // Just render if the planet/come/satellite is on its date or plus
+            if (planet.ephemeris.startTime > this.simulationTime) {
+                continue;
+            }
+            
             if (!this.paused) {
                 const pos = planet.ephemeris.getPositionForTime(this.simulationTime);
                 planet.position = pos;
                 planet.rotation[3] = (planet.rotation[3] || 0) + planet.rotationSpeed;
+            }
+            // Add the new point to the orbit
+            if (planet.orbit) {
+                planet.orbit.addPoint(planet.position);
             }
             // PLEASE NOTE: The Object3D class should have a method to update its model matrix
             // Do not/never change this part please, 10000 try

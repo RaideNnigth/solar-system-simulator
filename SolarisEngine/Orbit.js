@@ -1,91 +1,123 @@
-import Ephemeris from './Ephemeris.js';
+import { mat4 } from 'https://cdn.jsdelivr.net/npm/gl-matrix@3.4.3/esm/index.js';
 
 export default class Orbit {
-    constructor(gl, program, ephemerisData, step = 1, innerSegmentsNumber = 1, orbitPeriodInYears = 1) {
-        this.ephemeris = new Ephemeris(ephemerisData);
-        this.orbitPeriodInYears = orbitPeriodInYears;
-        this.step = step;
-        this.innerSegmentsNumber = innerSegmentsNumber;
-
-        // Shaders
+    constructor(gl, program, maxTrail = 100) {
         this.gl = gl;
         this.program = program;
-        this.attribLocations = {};
-        this.uniformLocations = {};
+        this.modelMatrix = mat4.create();
 
-        const { vertexData, ageData } = this.getOrbit(0, 8760 * orbitPeriodInYears);
-
-        this.vertexCount = vertexData.length / 3;
+        this.attribLocations = {
+            position: gl.getAttribLocation(program, 'a_position'),
+        };
+        this.uniformLocations = {
+            model: gl.getUniformLocation(program, 'u_model'),
+            view: gl.getUniformLocation(program, 'u_view'),
+            projection: gl.getUniformLocation(program, 'u_projection'),
+        };
 
         this.vertexBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
+        this.vertexCount = 0;
 
-        this.ageBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.ageBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, ageData, gl.STATIC_DRAW);
-
-        // Attributes
-        this.attribLocations.position = gl.getAttribLocation(program, 'a_position');
-        this.attribLocations.age = gl.getAttribLocation(program, 'a_age');
-
-        // Uniforms
-        this.uniformLocations.model = gl.getUniformLocation(program, 'u_model');
-        this.uniformLocations.view = gl.getUniformLocation(program, 'u_view');
-        this.uniformLocations.projection = gl.getUniformLocation(program, 'u_projection');
-        this.uniformLocations.time = gl.getUniformLocation(program, 'u_time');
+        // This Buffer to control points of the orbit, generated in Planet Object or any other object
+        this.points = [];
+        this.maxTrail = maxTrail;
+        this._needsInit = true;
     }
 
-    // from and to will be in hours sinde start of simulation (usally 1800)
-    getOrbit(from, to) {
-        const vertexList = [];
-        const ageList = [];
+    addPoint([x, y, z]) {
+        if (this._needsInit) {
+            this.rawPoints = [[x, y, z]];
+            this.points = [x, y, z];
+            this._needsInit = false;
+            return;
+        }
 
-        for (let i = from; i < to; i += this.step) {
-            const a = this.ephemeris.getPositionForTime(i);
-            const b = this.ephemeris.getPositionForTime(i + this.step);
-
-            const segmentStep = 1 / this.innerSegmentsNumber;
-            for (let j = 0; j <= this.innerSegmentsNumber; j++) {
-                const t = j * segmentStep;
-                const time = i + t * this.step;
-                const p = this.ephemeris.getPositionForTime(time);
-                vertexList.push(...p);
-                ageList.push(time);
+        const minDistance = 0.005;
+        for (let i = 0; i < this.points.length; i += 3) {
+            const dx = this.points[i] - x;
+            const dy = this.points[i + 1] - y;
+            const dz = this.points[i + 2] - z;
+            const distSq = dx * dx + dy * dy + dz * dz;
+            if (distSq < minDistance * minDistance) {
+                return;
             }
         }
 
-        return {
-            vertexData: new Float32Array(vertexList),
-            ageData: new Float32Array(ageList)
-        };
+        const lastPos = [x, y, z];
+        this.rawPoints = this.rawPoints || [];
+        this.rawPoints.push(lastPos);
+
+        if (this.rawPoints.length < 4) {
+            this.points.push(x, y, z);
+        } else {
+            const p0 = this.rawPoints[this.rawPoints.length - 4];
+            const p1 = this.rawPoints[this.rawPoints.length - 3];
+            const p2 = this.rawPoints[this.rawPoints.length - 2];
+            const p3 = this.rawPoints[this.rawPoints.length - 1];
+
+            const segments = 4;
+            for (let i = 0; i <= segments; i++) {
+                const t = i / segments;
+                const [ix, iy, iz] = this.catmullRom(p0, p1, p2, p3, t);
+                this.points.push(ix, iy, iz);
+            }
+        }
+
+        const maxLength = this.maxTrail * 3;
+        const overflow = this.points.length - maxLength;
+        if (overflow > 0) {
+            this.points.splice(0, overflow);
+        }
+        this.lastAddPos = [x, y, z];
     }
 
-    draw(engine, object) {
+    resetPoints() {
+        this.points = [];
+        this.rawPoints = [];
+        this._needsInit = true;
+    }
+
+    catmullRom(p0, p1, p2, p3, t) {
+        const t2 = t * t;
+        const t3 = t2 * t;
+
+        return [
+            0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * t +
+                (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 +
+                (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3),
+
+            0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t +
+                (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 +
+                (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3),
+
+            0.5 * ((2 * p1[2]) + (-p0[2] + p2[2]) * t +
+                (2 * p0[2] - 5 * p1[2] + 4 * p2[2] - p3[2]) * t2 +
+                (-p0[2] + 3 * p1[2] - 3 * p2[2] + p3[2]) * t3)
+        ];
+    }
+
+
+    draw(engine) {
         const gl = engine.gl;
-        const camera = engine.camera;
-        const simulationTime = engine.simulationTime;
+        const cam = engine.camera;
+
+        const vertexArray = new Float32Array(this.points);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertexArray, gl.DYNAMIC_DRAW);
+        this.vertexCount = this.points.length / 3;
 
         gl.useProgram(this.program);
 
-        // Set uniforms
-        gl.uniformMatrix4fv(this.uniformLocations.model, false, object.modelMatrix);
-        gl.uniformMatrix4fv(this.uniformLocations.view, false, camera.viewMatrix);
-        gl.uniformMatrix4fv(this.uniformLocations.projection, false, camera.projectionMatrix);
-        gl.uniform1f(this.uniformLocations.time, simulationTime);
+        gl.uniformMatrix4fv(this.uniformLocations.model, false, this.modelMatrix);
+        gl.uniformMatrix4fv(this.uniformLocations.view, false, cam.viewMatrix);
+        gl.uniformMatrix4fv(this.uniformLocations.projection, false, cam.projectionMatrix);
 
-        // Vertexes
-        gl.bindBuffer(gl.ARRAY_BUFFER, object.vertexBuffer);
-        gl.vertexAttribPointer(this.attribLocations.position, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(this.attribLocations.position);
+        if (this.attribLocations.position !== -1) {
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+            gl.vertexAttribPointer(this.attribLocations.position, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(this.attribLocations.position);
+        }
 
-        // Age buffer
-        gl.bindBuffer(gl.ARRAY_BUFFER, object.ageBuffer);
-        gl.vertexAttribPointer(this.attribLocations.age, 1, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(this.attribLocations.age);
-
-        // Draw baby
-        gl.drawArrays(gl.LINE_STRIP, 0, object.vertexCount);
+        gl.drawArrays(gl.LINE_STRIP, 0, this.vertexCount);
     }
-
 }

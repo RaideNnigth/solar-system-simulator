@@ -8,6 +8,7 @@ export default class Planet {
         data,
         texture,
         gl,
+        orbit = null,
         rotationAxis = [0, 1, 0],
         rotationSpeed = 0.01,
         radius = 1,
@@ -21,6 +22,7 @@ export default class Planet {
         this.indexData = indexData;
 
         this.name = name;
+        this.orbit = orbit;
 
         this.position = [data[0].x, data[0].y, data[0].z];
         this.rotation = rotation;

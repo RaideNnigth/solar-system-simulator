@@ -2,14 +2,9 @@ import Engine from './SolarisEngine/Engine.js';
 import Camera from './SolarisEngine/Camera.js';
 import Planet from './SolarisEngine/Planet.js';
 import Moon from './SolarisEngine/Moon.js';
-
 import Orbit from './SolarisEngine/Orbit.js';
-import OrbitShader from './SolarisEngine/OrbitShader.js';
-
 import Sun from './SolarisEngine/Sun.js';
-
 import Background from './SolarisEngine/Background.js';
-import BackgroundShader from './SolarisEngine/BackgroundShader.js';
 
 function loadTextureAsync(gl, url) {
     return new Promise((resolve, reject) => {
@@ -101,7 +96,6 @@ const orbitProgram = engine.createProgram(orbitVertex, orbitFragment);
 const bgVertex = await fetch('SolarisEngine/shaderFiles/background.vert.glsl').then(r => r.text());
 const bgFrag = await fetch('SolarisEngine/shaderFiles/background.frag.glsl').then(r => r.text());
 const bgProgram = engine.createProgram(bgVertex, bgFrag);
-const backgroundShader = new BackgroundShader(engine.gl, bgProgram)
 
 // 2.2 attach shaders to program list
 engine.setPrograms(
@@ -109,6 +103,7 @@ engine.setPrograms(
         'Default': defaultProgram,
         'Orbit': orbitProgram,
         'Sun': sunProgram,
+        'BackGround': bgProgram
     }
 );
 
@@ -213,23 +208,41 @@ Promise.all([
         const mercuryRadiusAU = (mercuryRadiusKm / AU) * scaleFactor;
 
         const moonRadiusKm = 1737.4;
-        const moonRadiusAU = (moonRadiusKm / AU) * scaleFactor * 3;
+        const moonRadiusAU = (moonRadiusKm / AU) * scaleFactor;
 
-        const background = new Background(engine.gl, backgroundShader, backGroundTexture);
+        const background = new Background(engine.gl, backGroundTexture, bgProgram);
         engine.setBackground(background);
 
-        // 6 Create the Planets, moon and Orbits
-        const earth = new Planet('Earth', [earthRadiusAU, earthRadiusAU, earthRadiusAU], earthEphemerisData, earthTexture, engine.gl, [0, 1, 0], 0.05);
-        const moon = new Moon('Moon', [moonRadiusAU, moonRadiusAU, moonRadiusAU], moonEphemerisData, moonTexture, engine.gl, [0, 0.5, 0], [0, 1, 0], 0.05);
-        const mars = new Planet('Mars', [marsRadiusAU, marsRadiusAU, marsRadiusAU], marsEphemerisData, marsTexture, engine.gl, [0, 1, 0], 0.05);
-        const venus = new Planet('Mars', [venusRadiusAU, venusRadiusAU, venusRadiusAU], venusEphemerisData, venusTexture, engine.gl, [0, 1, 0], 0.05);
-        const mercury = new Planet('Mars', [mercuryRadiusAU, mercuryRadiusAU, mercuryRadiusAU], mercuryEphemerisData, mercuryTexture, engine.gl, [0, 1, 0], 0.05);
-        const neptune = new Planet('Mars', [neptuneRadiusAU, neptuneRadiusAU, neptuneRadiusAU], neptuneEphemerisData, neptuneTexture, engine.gl, [0, 1, 0], 0.05);
-        const uranus = new Planet('Mars', [uranusRadiusAU, uranusRadiusAU, uranusRadiusAU], uranusEphemerisData, uranusTexture, engine.gl, [0, 1, 0], 0.05);
-        const saturn = new Planet('Mars', [saturnRadiusAU, saturnRadiusAU, saturnRadiusAU], saturnEphemerisData, saturnTexture, engine.gl, [0, 1, 0], 0.05);
-        const jupiter = new Planet('Mars', [jupiterRadiusAU, jupiterRadiusAU, jupiterRadiusAU], jupiterEphemerisData, jupiterTexture, engine.gl, [0, 1, 0], 0.05);
+        // 6 Crate my orbits for all objets
+        const earthOrbit = new Orbit(engine.gl, orbitProgram, 100);
+        const marsOrbit = new Orbit(engine.gl, orbitProgram, 100);
+        const venusOrbit = new Orbit(engine.gl, orbitProgram, 50);
+        const mercuryOrbit = new Orbit(engine.gl, orbitProgram, 10);
+        const neptuneOrbit = new Orbit(engine.gl, orbitProgram, 1000);
+        const uranusOrbit = new Orbit(engine.gl, orbitProgram, 1000);
+        const saturnOrbit = new Orbit(engine.gl, orbitProgram, 1000);
+        const jupiterOrbit = new Orbit(engine.gl, orbitProgram, 1000);
+        const halleyOrbit = new Orbit(engine.gl, orbitProgram, 1000);
+        const voyager1Orbit = new Orbit(engine.gl, orbitProgram, 1000);
+        const voyager2Orbit = new Orbit(engine.gl, orbitProgram, 1000);
 
-        const earthOrbit = new Orbit(engine.gl, orbitProgram, earthEphemerisData, 1, 2, 1);
+
+        // 6.1 Create the Planets and moons
+        const earth = new Planet('Earth', [earthRadiusAU, earthRadiusAU, earthRadiusAU], earthEphemerisData, earthTexture, engine.gl, earthOrbit, [0, 1, 0], 0.05);
+        const moon = new Moon('Moon', [moonRadiusAU, moonRadiusAU, moonRadiusAU], moonEphemerisData, moonTexture, engine.gl, [0, 0.3, 0], [0, 1, 0], 0.05);
+
+        const mars = new Planet('Mars', [marsRadiusAU, marsRadiusAU, marsRadiusAU], marsEphemerisData, marsTexture, engine.gl, marsOrbit, [0, 1, 0], 0.05);
+        const venus = new Planet('Venus', [venusRadiusAU, venusRadiusAU, venusRadiusAU], venusEphemerisData, venusTexture, engine.gl, venusOrbit, [0, 1, 0], 0.05);
+        const mercury = new Planet('Mercury', [mercuryRadiusAU, mercuryRadiusAU, mercuryRadiusAU], mercuryEphemerisData, mercuryTexture, engine.gl, mercuryOrbit, [0, 1, 0], 0.05);
+        const neptune = new Planet('Neptune', [neptuneRadiusAU, neptuneRadiusAU, neptuneRadiusAU], neptuneEphemerisData, neptuneTexture, engine.gl, neptuneOrbit, [0, 1, 0], 0.05);
+        const uranus = new Planet('Uranus', [uranusRadiusAU, uranusRadiusAU, uranusRadiusAU], uranusEphemerisData, uranusTexture, engine.gl, uranusOrbit, [0, 1, 0], 0.05);
+        const saturn = new Planet('Saturn', [saturnRadiusAU, saturnRadiusAU, saturnRadiusAU], saturnEphemerisData, saturnTexture, engine.gl, saturnOrbit, [0, 1, 0], 0.05);
+        const jupiter = new Planet('Jupiter', [jupiterRadiusAU, jupiterRadiusAU, jupiterRadiusAU], jupiterEphemerisData, jupiterTexture, engine.gl, jupiterOrbit, [0, 1, 0], 0.05);
+
+        // 6.2 Create other objects such as comets and satellites
+        const halley = new Planet('Halley', [earthRadiusAU, earthRadiusAU, earthRadiusAU], halleyEphemerisData, redTexture, engine.gl, halleyOrbit);
+        const voyager1 = new Planet('Voyager1', [earthRadiusAU, earthRadiusAU, earthRadiusAU], voyagerEphemerisData, redTexture, engine.gl, voyager1Orbit);
+        const voyager2 = new Planet('Voyager2', [earthRadiusAU, earthRadiusAU, earthRadiusAU], voyager2EphemerisData, redTexture, engine.gl, voyager2Orbit);
 
         // 7 Add Moons to the engine
         engine.addMoons([moon]);
@@ -238,7 +251,8 @@ Promise.all([
         engine.addPlanets(
             [
                 earth, mars, venus, mercury,
-                neptune, uranus, saturn, jupiter
+                neptune, uranus, saturn, jupiter, 
+                halley, voyager1, voyager2
             ]
         );
 
@@ -249,7 +263,10 @@ Promise.all([
         // 10 Add Orbits
         engine.addOrbits(
             [
-                earthOrbit,
+                earthOrbit, marsOrbit, venusOrbit,
+                neptuneOrbit, saturnOrbit, jupiterOrbit,
+                mercuryOrbit, uranusOrbit, halleyOrbit,
+                voyager1Orbit, voyager2Orbit
             ]
         );
 
@@ -278,7 +295,7 @@ document.querySelector('.toggle-pause-btn').onclick = () => {
     }
 }
 document.querySelector('.backward').onclick = () => engine.setTimeScale(-500);
-document.querySelector('.forward').onclick = () => engine.setTimeScale(20000);
+document.querySelector('.forward').onclick = () => engine.setTimeScale(15000);
 document.querySelector('.stop').onclick = () => engine.setTimeScale(1);
 
 document.getElementById('applyTimeBtn').addEventListener('click', () => {

@@ -1,8 +1,9 @@
 export default class Background {
-    constructor(gl, shader, texture) {
+    constructor(gl, texture, program) {
         this.gl = gl;
-        this.shader = shader;
         this.texture = texture;
+        this.attribLocations = {};
+        this.uniformLocations = {};
 
         const vertices = new Float32Array([
             -1, -1,  0, 0,
@@ -20,23 +21,29 @@ export default class Background {
         this.indexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+
+        this.attribLocations.position = gl.getAttribLocation(program, 'a_position');
+        this.attribLocations.uv = gl.getAttribLocation(program, 'a_uv');
+        this.uniformLocations.texture = gl.getUniformLocation(program, 'u_texture');
+        this.uniformLocations.cameraPosition = gl.getUniformLocation(program, 'u_cameraPosition');
+        this.program = program;
     }
 
     draw() {
         const gl = this.gl;
-        const program = this.shader.program;
+        const program = this.program;
         gl.useProgram(program);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
-        gl.vertexAttribPointer(this.shader.attribLocations.position, 2, gl.FLOAT, false, 16, 0);
-        gl.enableVertexAttribArray(this.shader.attribLocations.position);
+        gl.vertexAttribPointer(this.attribLocations.position, 2, gl.FLOAT, false, 16, 0);
+        gl.enableVertexAttribArray(this.attribLocations.position);
 
-        gl.vertexAttribPointer(this.shader.attribLocations.uv, 2, gl.FLOAT, false, 16, 8);
-        gl.enableVertexAttribArray(this.shader.attribLocations.uv);
+        gl.vertexAttribPointer(this.attribLocations.uv, 2, gl.FLOAT, false, 16, 8);
+        gl.enableVertexAttribArray(this.attribLocations.uv);
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.texture);
-        gl.uniform1i(this.shader.uniformLocations.texture, 0);
+        gl.uniform1i(this.uniformLocations.texture, 0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
         gl.disable(gl.DEPTH_TEST);
