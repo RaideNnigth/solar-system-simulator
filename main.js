@@ -87,8 +87,8 @@ const sunFragmentShaderSource = await fetch('SolarisEngine/shaderFiles/sun.frag.
 const sunProgram = engine.createProgram(sunVertexShaderSource, sunFragmentShaderSource);
 
 //2.1.3 Create line fader
-const orbitVertex = await fetch('SolarisEngine/shaderFiles/linefader.vert.glsl').then(r => r.text());
-const orbitFragment = await fetch('SolarisEngine/shaderFiles/linefader.frag.glsl').then(r => r.text());
+const orbitVertex = await fetch('SolarisEngine/shaderFiles/orbit.vert.glsl').then(r => r.text());
+const orbitFragment = await fetch('SolarisEngine/shaderFiles/orbit.frag.glsl').then(r => r.text());
 const orbitProgram = engine.createProgram(orbitVertex, orbitFragment);
 
 
@@ -214,33 +214,33 @@ Promise.all([
         engine.setBackground(background);
 
         // 6 Crate my orbits for all objets
-        const earthOrbit = new Orbit(engine.gl, orbitProgram, 100);
-        const marsOrbit = new Orbit(engine.gl, orbitProgram, 100);
-        const venusOrbit = new Orbit(engine.gl, orbitProgram, 50);
-        const mercuryOrbit = new Orbit(engine.gl, orbitProgram, 10);
-        const neptuneOrbit = new Orbit(engine.gl, orbitProgram, 1000);
-        const uranusOrbit = new Orbit(engine.gl, orbitProgram, 1000);
-        const saturnOrbit = new Orbit(engine.gl, orbitProgram, 1000);
-        const jupiterOrbit = new Orbit(engine.gl, orbitProgram, 1000);
-        const halleyOrbit = new Orbit(engine.gl, orbitProgram, 1000);
+        const mercuryOrbit  = new Orbit(engine.gl, orbitProgram, 10);
+        const venusOrbit    = new Orbit(engine.gl, orbitProgram, 50);
+        const earthOrbit    = new Orbit(engine.gl, orbitProgram, 100);
+        const marsOrbit     = new Orbit(engine.gl, orbitProgram, 100);
+        const neptuneOrbit  = new Orbit(engine.gl, orbitProgram, 1000);
+        const uranusOrbit   = new Orbit(engine.gl, orbitProgram, 1000);
+        const saturnOrbit   = new Orbit(engine.gl, orbitProgram, 1000);
+        const jupiterOrbit  = new Orbit(engine.gl, orbitProgram, 1000);
+        const halleyOrbit   = new Orbit(engine.gl, orbitProgram, 1000);
         const voyager1Orbit = new Orbit(engine.gl, orbitProgram, 1000);
         const voyager2Orbit = new Orbit(engine.gl, orbitProgram, 1000);
 
-
-        // 6.1 Create the Planets and moons
-        const earth = new Planet('Earth', [earthRadiusAU, earthRadiusAU, earthRadiusAU], earthEphemerisData, earthTexture, engine.gl, earthOrbit, [0, 1, 0], 0.05);
-        const moon = new Moon('Moon', [moonRadiusAU, moonRadiusAU, moonRadiusAU], moonEphemerisData, moonTexture, engine.gl, [0, 0.3, 0], [0, 1, 0], 0.05);
-
-        const mars = new Planet('Mars', [marsRadiusAU, marsRadiusAU, marsRadiusAU], marsEphemerisData, marsTexture, engine.gl, marsOrbit, [0, 1, 0], 0.05);
-        const venus = new Planet('Venus', [venusRadiusAU, venusRadiusAU, venusRadiusAU], venusEphemerisData, venusTexture, engine.gl, venusOrbit, [0, 1, 0], 0.05);
+        // 6.1 Create the Planets
+        const earth   = new Planet('Earth', [earthRadiusAU, earthRadiusAU, earthRadiusAU], earthEphemerisData, earthTexture, engine.gl, earthOrbit, [0, 1, 0], 0.05);
+        const mars    = new Planet('Mars', [marsRadiusAU, marsRadiusAU, marsRadiusAU], marsEphemerisData, marsTexture, engine.gl, marsOrbit, [0, 1, 0], 0.05);
+        const venus   = new Planet('Venus', [venusRadiusAU, venusRadiusAU, venusRadiusAU], venusEphemerisData, venusTexture, engine.gl, venusOrbit, [0, 1, 0], 0.05);
         const mercury = new Planet('Mercury', [mercuryRadiusAU, mercuryRadiusAU, mercuryRadiusAU], mercuryEphemerisData, mercuryTexture, engine.gl, mercuryOrbit, [0, 1, 0], 0.05);
         const neptune = new Planet('Neptune', [neptuneRadiusAU, neptuneRadiusAU, neptuneRadiusAU], neptuneEphemerisData, neptuneTexture, engine.gl, neptuneOrbit, [0, 1, 0], 0.05);
-        const uranus = new Planet('Uranus', [uranusRadiusAU, uranusRadiusAU, uranusRadiusAU], uranusEphemerisData, uranusTexture, engine.gl, uranusOrbit, [0, 1, 0], 0.05);
-        const saturn = new Planet('Saturn', [saturnRadiusAU, saturnRadiusAU, saturnRadiusAU], saturnEphemerisData, saturnTexture, engine.gl, saturnOrbit, [0, 1, 0], 0.05);
+        const uranus  = new Planet('Uranus', [uranusRadiusAU, uranusRadiusAU, uranusRadiusAU], uranusEphemerisData, uranusTexture, engine.gl, uranusOrbit, [0, 1, 0], 0.05);
+        const saturn  = new Planet('Saturn', [saturnRadiusAU, saturnRadiusAU, saturnRadiusAU], saturnEphemerisData, saturnTexture, engine.gl, saturnOrbit, [0, 1, 0], 0.05);
         const jupiter = new Planet('Jupiter', [jupiterRadiusAU, jupiterRadiusAU, jupiterRadiusAU], jupiterEphemerisData, jupiterTexture, engine.gl, jupiterOrbit, [0, 1, 0], 0.05);
 
-        // 6.2 Create other objects such as comets and satellites
-        const halley = new Planet('Halley', [earthRadiusAU, earthRadiusAU, earthRadiusAU], halleyEphemerisData, redTexture, engine.gl, halleyOrbit);
+        // 6.1.2 Create the Moon's
+        const moon = new Moon('Moon', [moonRadiusAU, moonRadiusAU, moonRadiusAU], moonEphemerisData, moonTexture, engine.gl, [0, 0.3, 0], [0, 1, 0], 0.05);
+
+        // 6.2 Create other objects such as comets and satellites -> Called Planet cause I did not want to create another class for now
+        const halley   = new Planet('Halley', [earthRadiusAU, earthRadiusAU, earthRadiusAU], halleyEphemerisData, redTexture, engine.gl, halleyOrbit);
         const voyager1 = new Planet('Voyager1', [earthRadiusAU, earthRadiusAU, earthRadiusAU], voyagerEphemerisData, redTexture, engine.gl, voyager1Orbit);
         const voyager2 = new Planet('Voyager2', [earthRadiusAU, earthRadiusAU, earthRadiusAU], voyager2EphemerisData, redTexture, engine.gl, voyager2Orbit);
 
@@ -276,12 +276,14 @@ Promise.all([
 engine.start();
 
 // 9. Handle body selection
-const bodySelect = document.getElementById('body');
-bodySelect.addEventListener('change', () => {
+const confirm = document.getElementById('confirm');
+confirm.addEventListener('click', () => {
+    const bodySelect = document.getElementById('body');
     const selectedBody = bodySelect.value;
+    const orbitMode = document.getElementById('orbit').checked;
     // Look at the selected body
     engine.fixCameraOnObject(
-        selectedBody
+        selectedBody, orbitMode
     );
 });
 
@@ -310,5 +312,5 @@ document.getElementById('applyTimeBtn').addEventListener('click', () => {
         return;
     }
 
-    engine.setCurrentTime({ year, month, day, hour, minute });
+    engine.setTargetTime({ year, month, day, hour, minute });
 });

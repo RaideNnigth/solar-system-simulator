@@ -13,8 +13,12 @@ export default class Engine {
         this.orbits = [];
 
         // Time Section
+        this.defaultTimeScale = 25;
+        this.timeWarpDefault = 50000;
+        this.lastScaleTime = this.defaultTimeScale;
+        this.targetTime = -1;       // Putting a value in hours will make simulation time, run util it... -1 to stop looking.
         this.lastTime = 0;
-        this.timeScale = 4;      // Time scale for simulation --- Each second in real time corresponds to 1 hour;
+        this.timeScale = this.defaultTimeScale;      // Time scale for simulation --- Each second in real time corresponds to 1 hour;
         this.simulationTime = 0; // Simulation time in hours from the beggining of the simulation
         this.paused = true;
 
@@ -25,19 +29,19 @@ export default class Engine {
         // Clear color and depth
         this.gl.clearColor(0, 0, 0, 1);
         this.gl.enable(this.gl.DEPTH_TEST);
+        this.backGround = null;
 
         // Enable blend
         this.gl.enable(this.gl.BLEND);
         this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
 
-        this.program = {};
-        this.attribLocations = {};
-        this.uniformLocations = {};
-
+        // Camera controls
         this.camera = null;
         this.cameraTargetObject = 'None';
         this.startDate = new Date(Date.UTC(1800, 0, 1, 0, 0, 0));
         this.endDate = new Date(Date.UTC(2030, 0, 1, 0, 0, 0));
+        this.orbitMode = false;
+        this.orbitSpeed = 0;
 
         // Mouse controls
         this.isDragging = false;
@@ -50,8 +54,10 @@ export default class Engine {
 
         // Performance house keeping boy
         this.lastClockUpdate = 0;
+        this.program = {};
+        this.attribLocations = {};
+        this.uniformLocations = {};
 
-        this.backGround = null;
     }
 
     start() {
@@ -136,27 +142,43 @@ export default class Engine {
         this.camera = camera;
     }
 
-    setCurrentTime({ year, month, day, hour = 0, minute = 0 }) {
+    setTargetTime({ year, month, day, hour = 0, minute = 0 }) {
         const date = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+        let tt = 0;
         if (date < this.startDate) {
-            this.simulationTime = 0;
+            tt = 0;
         } else if (date > this.endDate) {
             const ms = this.endDate.getTime() - this.startDate.getTime();
-            this.simulationTime = ms / (1000 * 3600);
+            tt = ms / (1000 * 3600);
         } else {
             const ms = date.getTime() - this.startDate.getTime();
-            this.simulationTime = ms / (1000 * 3600); // Convert milliseconds to hours
+            tt = ms / (1000 * 3600); // Convert milliseconds to hours
         }
+        this.lastScaleTime = this.timeScale;
+        this.targetTime = tt;
+    }
 
-        // reset orbits soo we dont have any spikes
-        if (this.orbits) {
-            for (let orbit of this.orbits) {
-                orbit.resetPoints();
-            }
+    _clampWarp(deltaSim) {
+        if (this.targetTime === -1) return deltaSim;
+
+        const nextSim = this.simulationTime + deltaSim;
+        if (deltaSim > 0 && nextSim >= this.targetTime) {
+            this.timeScale = this.lastScaleTime;
+            this.targetTime = -1;
+            this.resetOrbitsLine();
         }
+        else if (deltaSim < 0 && nextSim <= this.targetTime) {
+            this.timeScale = this.lastScaleTime;
+            this.targetTime = -1;
+            this.resetOrbitsLine();
+        }
+        return deltaSim;
+    }
 
-        // Also update the simulation clock display immediately
-        this.updateSimulationClockUI();
+    resetOrbitsLine() {
+        for (let orbit of this.orbits) {
+            orbit.resetPoints();
+        }
     }
 
     setSun(sun) {
@@ -203,7 +225,7 @@ export default class Engine {
         }
     }
 
-    fixCameraOnObject(objectName) {
+    fixCameraOnObject(objectName, orbitMode = false) {
         const object = this.planets.find(obj => obj.name === objectName);
         if (object) {
             this.cameraTargetObject = object;
@@ -211,6 +233,7 @@ export default class Engine {
             console.warn(`Object with name ${objectName} not found.`);
             this.cameraTargetObject = 'None';
         }
+        this.orbitMode = orbitMode;
     }
 
     updateCameraPosition() {
@@ -271,10 +294,31 @@ export default class Engine {
         }
     }
 
+    startOrbitPlanet(objectName, speedDegPerSec = 10) {
+        // Get the obj to orbit around
+        const obj = this.planets.find(p => p.name === objectName);
+        if (!obj) {
+            console.warn(`Planet "${objectName}" not found.`);
+            return;
+        }
+        this.cameraTargetObject = obj;
+        this.orbitMode = true;
+        // convert deg/sec → rad/sec
+        this.orbitSpeed = speedDegPerSec * Math.PI / 180;
+    }
+
+    stopOrbitPlanet() {
+        this.orbitMode = false;
+    }
+
     loop(currentTime) {
         // Clear the screen
         const gl = this.gl;
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        let deltaTime = (currentTime - this.lastTime) / 1000;
+        // +- 10FPS
+        deltaTime = Math.min(deltaTime, 0.1);
 
         // Draw first the background :D Cool stars
         let program = this.programs['BackGround'];
@@ -288,8 +332,15 @@ export default class Engine {
             this.backGround.draw();
         }
 
-        // Update camera position and orientation to look at the target object
-        if (this.cameraTargetObject !== 'None') {
+        // Orbit around using a lot of complicated but simple Math :D -> https://en.wikipedia.org/wiki/Rotation_(mathematics)
+        if (this.orbitMode && this.cameraTargetObject?.position) {
+            this.yaw += this.orbitSpeed * deltaTime;
+            const [cx, cy, cz] = this.cameraTargetObject.position;
+            const x = cx + this.radius * Math.cos(this.pitch) * Math.sin(this.yaw);
+            const y = cy + this.radius * Math.sin(this.pitch);
+            const z = cz + this.radius * Math.cos(this.pitch) * Math.cos(this.yaw);
+            this.camera.lookAt([x, y, z], [cx, cy, cz], [0, 1, 0]);
+        } else if (this.cameraTargetObject !== 'None') {
             const obj = this.cameraTargetObject;
             this.camera.lookAt(
                 [obj.position[0], obj.position[1] + 1, obj.position[2]],
@@ -301,14 +352,18 @@ export default class Engine {
         // Calculate delta time and update simulation time if not paused
         // do it outside of the loop to avoid issues with requestAnimationFrame timing for individual planets
         if (!this.paused) {
-            let deltaTime = (currentTime - this.lastTime) / 1000;
-
-            // Cap the delta to 0.1s (~10 FPS)
-            deltaTime = Math.min(deltaTime, 0.1);
+            // Set TimeScale if there is a target...
+            if (this.targetTime !== -1) {
+                if (this.simulationTime < this.targetTime) {
+                    this.timeScale = this.timeWarpDefault;   // +50000
+                } else {
+                    this.timeScale = -this.timeWarpDefault;  // –50000
+                }
+            }
 
             let simulationDelta = deltaTime * this.timeScale;
+            simulationDelta = this._clampWarp(simulationDelta);
             this.simulationTime += simulationDelta;
-
             if (currentTime - this.lastClockUpdate > 50) {
                 this.updateSimulationClockUI();
                 this.lastClockUpdate = currentTime;
@@ -333,7 +388,6 @@ export default class Engine {
             if (planet.ephemeris.startTime > this.simulationTime) {
                 continue;
             }
-            
             if (!this.paused) {
                 const pos = planet.ephemeris.getPositionForTime(this.simulationTime);
                 planet.position = pos;
