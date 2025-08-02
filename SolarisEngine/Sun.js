@@ -53,8 +53,6 @@ export default class Sun {
         this.uniformLocations.projection = gl.getUniformLocation(program, 'u_projection');
         this.uniformLocations.time = gl.getUniformLocation(program, 'u_time');
         this.uniformLocations.resolution = gl.getUniformLocation(program, 'u_resolution');
-
-
     }
 
     faceCamera(camera) {

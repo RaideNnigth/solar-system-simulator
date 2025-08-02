@@ -1,7 +1,7 @@
 import { mat4 } from 'https://cdn.jsdelivr.net/npm/gl-matrix@3.4.3/esm/index.js';
 
 export default class Orbit {
-    constructor(gl, program, maxTrail = 100) {
+    constructor(gl, program, maxTrail = 100, segments = 4) {
         this.gl = gl;
         this.program = program;
         this.modelMatrix = mat4.create();
@@ -22,6 +22,7 @@ export default class Orbit {
         this.points = [];
         this.maxTrail = maxTrail;
         this._needsInit = true;
+        this.segments = segments;
     }
 
     addPoint([x, y, z]) {
@@ -55,7 +56,7 @@ export default class Orbit {
             const p2 = this.rawPoints[this.rawPoints.length - 2];
             const p3 = this.rawPoints[this.rawPoints.length - 1];
 
-            const segments = 4;
+            const segments = this.segments;
             for (let i = 0; i <= segments; i++) {
                 const t = i / segments;
                 const [ix, iy, iz] = this.catmullRom(p0, p1, p2, p3, t);

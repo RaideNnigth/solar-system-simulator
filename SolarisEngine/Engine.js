@@ -1,12 +1,14 @@
 export default class Engine {
-    constructor(canvas) {
+    constructor(canvas, document) {
         this.canvas = canvas;
         this.gl = canvas.getContext("webgl2");
+        this.document = document;
         if (!this.gl) throw new Error("WebGL not supported");
 
         // Interstellar objects
         this.planets = [];
         this.moons = [];
+        this.comets = [];
         this.sun = null;
 
         // Orbits Section
@@ -21,6 +23,9 @@ export default class Engine {
         this.timeScale = this.defaultTimeScale;      // Time scale for simulation --- Each second in real time corresponds to 1 hour;
         this.simulationTime = 0; // Simulation time in hours from the beggining of the simulation
         this.paused = true;
+
+        // Other do not know anymore
+        this.frameCount = 0;
 
         // Resize canvas
         this.resize();
@@ -105,6 +110,10 @@ export default class Engine {
         this.planets.push(...objs);
     }
 
+    addComets(objs) {
+        this.comets.push(...objs);
+    }
+
     addOrbits(orbs) {
         this.orbits.push(...orbs);
     }
@@ -165,12 +174,15 @@ export default class Engine {
         if (deltaSim > 0 && nextSim >= this.targetTime) {
             this.timeScale = this.lastScaleTime;
             this.targetTime = -1;
-            this.resetOrbitsLine();
+            this.paused = true;
+            document.querySelector('.toggle-pause-btn').textContent = '▶';
         }
         else if (deltaSim < 0 && nextSim <= this.targetTime) {
             this.timeScale = this.lastScaleTime;
             this.targetTime = -1;
             this.resetOrbitsLine();
+            this.paused = true;
+            document.querySelector('.toggle-pause-btn').textContent = '▶';
         }
         return deltaSim;
     }
@@ -226,12 +238,38 @@ export default class Engine {
     }
 
     fixCameraOnObject(objectName, orbitMode = false) {
-        const object = this.planets.find(obj => obj.name === objectName);
-        if (object) {
-            this.cameraTargetObject = object;
-        } else {
-            console.warn(`Object with name ${objectName} not found.`);
+        if (objectName == 'None') {
             this.cameraTargetObject = 'None';
+            return;
+        }
+
+        let object = this.planets.find(obj => obj.name === objectName);
+        const fallBack = this.comets.find(obj => obj.name === objectName);
+        if (!(object || fallBack)) {
+            alert(`Object with name ${objectName} not found.`);
+            this.cameraTargetObject = 'None';
+            return;
+        }
+        object = object != null ? object : fallBack;
+
+        const isObjectInScene = object.ephemeris != null && object.ephemeris.startTime <= this.simulationTime;
+        if (!isObjectInScene) {
+            alert(`Object ${objectName} not yet in the scene!`);
+            return;
+        }
+
+        // Set camera to object target and get its zoom
+        this.cameraTargetObject = object;
+        const averageRadius = (object.scale[0] + object.scale[1] + object.scale[2]) / 3;
+
+        // Set camera radius to be 20x larger than planet
+        this.radius = averageRadius * 20;
+
+        // If orbiting
+        if (orbitMode) {
+            this.orbitSpeed = (45 * Math.PI) / 180;
+        } else {
+            this.orbitSpeed = 0;
         }
         this.orbitMode = orbitMode;
     }
@@ -294,23 +332,6 @@ export default class Engine {
         }
     }
 
-    startOrbitPlanet(objectName, speedDegPerSec = 10) {
-        // Get the obj to orbit around
-        const obj = this.planets.find(p => p.name === objectName);
-        if (!obj) {
-            console.warn(`Planet "${objectName}" not found.`);
-            return;
-        }
-        this.cameraTargetObject = obj;
-        this.orbitMode = true;
-        // convert deg/sec → rad/sec
-        this.orbitSpeed = speedDegPerSec * Math.PI / 180;
-    }
-
-    stopOrbitPlanet() {
-        this.orbitMode = false;
-    }
-
     loop(currentTime) {
         // Clear the screen
         const gl = this.gl;
@@ -321,16 +342,13 @@ export default class Engine {
         deltaTime = Math.min(deltaTime, 0.1);
 
         // Draw first the background :D Cool stars
+        gl.disable(gl.DEPTH_TEST);
         let program = this.programs['BackGround'];
-        this.gl.useProgram(program);
+        gl.useProgram(program);
         if (this.backGround) {
-            if (this.backGround.uniformLocations?.cameraPosition) {
-                const camPos = this.camera.eye;
-                this.gl.useProgram(program);
-                this.gl.uniform3fv(this.backGround.uniformLocations.cameraPosition, new Float32Array(camPos));
-            }
-            this.backGround.draw();
+            this.backGround.draw(this.frameCount || 0);
         }
+        gl.enable(gl.DEPTH_TEST);
 
         // Orbit around using a lot of complicated but simple Math :D -> https://en.wikipedia.org/wiki/Rotation_(mathematics)
         if (this.orbitMode && this.cameraTargetObject?.position) {
@@ -384,7 +402,7 @@ export default class Engine {
         gl.useProgram(program);
         // Update planets positions based on their ephemeris
         for (const planet of this.planets) {
-            // Just render if the planet/come/satellite is on its date or plus
+            // Just render if the planet/satellite is on its date or plus
             if (planet.ephemeris.startTime > this.simulationTime) {
                 continue;
             }
@@ -429,6 +447,30 @@ export default class Engine {
             }, this.camera, this.simulationTime, this.canvas);
         }
 
+        // Update Comets
+        program = this.programs['Comet'];
+        gl.useProgram(program);
+        for (const comet of this.comets) {
+            // Just render if the comet is on its date or plus
+            if (comet.ephemeris.startTime > this.simulationTime) {
+                continue;
+            }
+            if (!this.paused) {
+                const pos = comet.ephemeris.getPositionForTime(this.simulationTime);
+                comet.position = pos;
+                comet.rotation[3] = (comet.rotation[3] || 0) + comet.rotationSpeed;
+            }
+            // Add the new point to the orbit
+            if (comet.orbit) {
+                comet.orbit.addPoint(comet.position);
+            }
+            // PLEASE NOTE: The Object3D class should have a method to update its model matrix
+            // Do not/never change this part please, 10000 try
+            comet.draw(
+                this
+            );
+        }
+
         // Last but not least draw orbits
         program = this.programs['Orbit'];
         gl.useProgram(program);
@@ -437,6 +479,7 @@ export default class Engine {
         }
 
         // Next frame
+        if(!this.paused) this.frameCount = (this.frameCount || 0) + 1;
         requestAnimationFrame(this.loop.bind(this));
     }
 }
