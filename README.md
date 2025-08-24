@@ -132,8 +132,3 @@ This project is licensed under the [MIT License](./LICENSE).
 Developed by **Gustavo Pinzon Pereira** as a study project in WebGL, 3D simulation, and computational astronomy.
 
 ```
-
----
-
-Do you want me to also include **preview images or GIFs** in the README (so people see the simulator right away), or should I keep it clean with text only?
-```
